@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/*
+  SpiritCal Earthtone theme.
+  Light + dark palettes are driven by CSS variables on :root / .dark.
+  Element accent colors mirror the in-game element chart art.
+*/
+
+:root {
+  --background: #f3ead9;
+  --background-alt: #ece0c9;
+  --surface: #fbf6ec;
+  --surface-2: #f4ead6;
+  --foreground: #3a2e26;
+  --muted: #7c6c5b;
+  --border: #e2d3ba;
+  --border-strong: #cbb794;
+
+  --primary: #b0603a;
+  --primary-hover: #9a4f2d;
+  --primary-foreground: #fdf6ee;
+  --secondary: #6d7a4c;
+  --secondary-hover: #5c683f;
+  --accent: #c58a34;
+
+  --good: #5f8a3f;
+  --bad: #b4513a;
+  --shadow-color: 60 40 25;
+  --sec-damage: #8a4f5f;
+  --sec-skill: #3f7d84;
+  --sec-status: #5f7d5a;
+  --sec-autocast: #7a5c9e;
+  /* Essence tab — two extra Earthtone slots for nine distinct pool colours */
+  --sec-essence-a: #7d5c3a;
+  --sec-essence-b: #4a6b5a;
+
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  --background: #201814;
+  --background-alt: #191210;
+  --surface: #2b211b;
+  --surface-2: #342820;
+  --foreground: #efe3d1;
+  --muted: #b19e88;
+  --border: #3d2f26;
+  --border-strong: #52402f;
+
+  --primary: #d07f52;
+  --primary-hover: #dd8f63;
+  --primary-foreground: #23180f;
+  --secondary: #97a86c;
+  --secondary-hover: #a7b87e;
+  --accent: #e0b25a;
+
+  --good: #83b25c;
+  --bad: #db7a5f;
+  --shadow-color: 0 0 0;
+  --sec-damage: #c2848f;
+  --sec-skill: #79b6bd;
+  --sec-status: #93b58c;
+  --sec-autocast: #ab8fce;
+  --sec-essence-a: #c49670;
+  --sec-essence-b: #7aaa90;
+}
+
+/* Element accent colors (shared across themes). */
+:root {
+  --el-neutral: #9aa0a6;
+  --el-poison: #7cb342;
+  --el-ghost: #4fc3d7;
+  --el-undead: #9b59b6;
+  --el-fire: #e8622b;
+  --el-earth: #99623c;
+  --el-wind: #e6c229;
+  --el-water: #3e92cc;
+  --el-holy: #ef9bb3;
+  --el-shadow: #5f4fa0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-alt: var(--background-alt);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-accent: var(--accent);
+
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-sec-damage: var(--sec-damage);
+  --color-sec-skill: var(--sec-skill);
+  --color-sec-status: var(--sec-status);
+  --color-sec-autocast: var(--sec-autocast);
+  --color-sec-essence-a: var(--sec-essence-a);
+  --color-sec-essence-b: var(--sec-essence-b);
+
+  --color-el-neutral: var(--el-neutral);
+  --color-el-poison: var(--el-poison);
+  --color-el-ghost: var(--el-ghost);
+  --color-el-undead: var(--el-undead);
+  --color-el-fire: var(--el-fire);
+  --color-el-earth: var(--el-earth);
+  --color-el-wind: var(--el-wind);
+  --color-el-water: var(--el-water);
+  --color-el-holy: var(--el-holy);
+  --color-el-shadow: var(--el-shadow);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+
+  --radius-card: 1rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  /* subtle organic grain */
+  background-image: radial-gradient(
+      rgba(120, 90, 60, 0.04) 1px,
+      transparent 1px
+    );
+  background-size: 22px 22px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--primary-foreground);
+}
+
+/* Nice focus ring using the accent color. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Range slider theming */
+input[type="range"] {
+  accent-color: var(--primary);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeInUp 0.25s ease-out both;
+}
