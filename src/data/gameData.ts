@@ -238,9 +238,9 @@ export const DEFAULT_GEAR: GearMods = {
   CritDef: 0,
   HP: 0,
   MP: 0,
-  FlatDEF: 0,
   FlatRegen: 0,
-  Siphon: 0,
+  SiphonHp: 0,
+  SiphonMp: 0,
   ATKpct: 0,
   MATKpct: 0,
   DEFpct: 0,
@@ -318,6 +318,7 @@ export function makeDefaultBuild(name = "New Build"): Build {
     target: { ...DEFAULT_TARGET },
     skillCastTime: 2,
     durationSec: 10,
+    leechDamageBasis: 0,
     damage: {
       aa: { enabled: true, multipliers: [] },
       skills: {

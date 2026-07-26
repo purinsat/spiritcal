@@ -19,6 +19,7 @@ Mdef: MDEF * (1 + VIT/1000 + Mdef%)
 DamageReduction: 100 / (DEF + 100)
 
 ReflectDamage: (LV + DEF/2 + FlatDEF/2 + ATK/2) * 4 * Reflect%
+# Confirmed Jul 2026: DEF is total DEF (FlatDEF * (1 + VIT/1000 + Def%)), FlatDEF is the same raw flat DEF input (not a separate stat), ATK is the full computed attack (melee/ranged/magic) for the equipped weapon type.
 Healing: (LV+ INT + VIT) * 2.5 * Healing%
 StatusDamage: (LV + STR + AGI + INT) / 10 * Stacks * StatusDamage%
 
@@ -51,6 +52,13 @@ SiphonMp: Siphon * (LV + INT) / 50
 
 [Leech recovers your hp/mp over time based on damage dealt, capped to 20% of max hp/mp per second]
 Leech Amount: Leech% * damage dealt / 3
+
+[Correction, Jul 2026: "Siphon" above is really two separate gear stats, SiphonHp and
+SiphonMp — each feeds only its own formula (the shared "Siphon" name was a modeling error
+in the app, not a game mechanic; Blood Lust's "+25 HP Siphon" only makes sense if MP Siphon
+is separate). Siphon pays out per hit, flat, not scaled by damage like Leech. Every hit
+siphons, including multistrike extra hits, so siphon-per-second scales with attack speed —
+this is the OPPOSITE of the autocast rule, where multihits count as one hit.]
 
 Base Attack Delay (BAD)
 Unarmed: 0.9
@@ -139,3 +147,17 @@ Benediction: +10 Str/Int/Dex/Luk, +20 Hit
 Zeal: +15 Atk/Matk
 Guardian Spirit: Immune to ranged damage
 Aegis: Immune to all damage
+
+---
+## Confirmed answers (Jul 2026)
+
+**Leech caps**: HP and MP leech pools are separate. Leech% * damage / 3, capped at 20% of max HP independently from 20% of max MP. Both caps apply per second.
+
+**Magic damage reduction**: Uses the same curve as physical — 100 / (MDEF + 100). Already matched by app.
+
+**Reflect formula terms**:
+- DEF = total DEF = FlatDEF * (1 + VIT/1000 + Def%)  (already computed as c.def in the app)
+- FlatDEF in the formula = the same flat DEF gear input, not a separate stat — "FlatDEF (reflect)" field removed
+- ATK = full computed attack (melee/ranged/magic) depending on main weapon, not raw gear ATK
+
+**Multistrike rename**: "Double Attack" was renamed to "Multistrike" by the dev. Same stat, same formula. Updated in essenceData and all references.

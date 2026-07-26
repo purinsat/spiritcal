@@ -3,7 +3,7 @@
 import * as React from "react";
 import { computeSpeed } from "@/lib/formulas";
 import type { Attributes, Build, GearMods } from "@/lib/types";
-import { NumberInput, SharedStatBadge, cn } from "@/components/ui";
+import { NumberInput, SharedStatBadge, cn, FormulaDetails } from "@/components/ui";
 import { type AccentKey, SECTION_ACCENTS } from "@/lib/sectionAccents";
 
 // ---- Tile -------------------------------------------------------------------
@@ -179,8 +179,7 @@ export function SpeedSection({
       </div>
 
       {/* --- Detail strip --- */}
-      <div className="mb-5 rounded-xl border border-border bg-surface-2/40 p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Details</p>
+      <FormulaDetails title="Details">
         <DetailRow
           label="ASPD"
           value={fmt(sp.aspd, 1)}
@@ -203,7 +202,7 @@ export function SpeedSection({
           which makes the result readable both as seconds of delay and as the fraction of a
           skill&apos;s listed cast time you pay.
         </p>
-      </div>
+      </FormulaDetails>
 
       {/* --- Multistrike explainer --- */}
       {sp.multistrikePct > 0 && (

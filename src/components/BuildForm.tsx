@@ -33,8 +33,8 @@ const ATTR_FIELDS: { key: keyof Attributes; label: string }[] = [
 const GEAR_FLAT: { key: keyof GearMods; label: string }[] = [
   { key: "ATK", label: "ATK" },
   { key: "MASTERY", label: "Mastery" },
-  { key: "DEF", label: "DEF" },
-  { key: "MDEF", label: "MDEF" },
+  { key: "DEF", label: "Flat DEF" },
+  { key: "MDEF", label: "Flat MDEF" },
   { key: "HIT", label: "Hit" },
   { key: "FLEE", label: "Flee" },
   { key: "CRIT", label: "Crit" },
@@ -42,9 +42,9 @@ const GEAR_FLAT: { key: keyof GearMods; label: string }[] = [
   { key: "CritDef", label: "Crit DEF" },
   { key: "HP", label: "Flat HP" },
   { key: "MP", label: "Flat MP" },
-  { key: "FlatDEF", label: "Flat DEF" },
   { key: "FlatRegen", label: "Flat Regen" },
-  { key: "Siphon", label: "Siphon" },
+  { key: "SiphonHp", label: "Siphon HP" },
+  { key: "SiphonMp", label: "Siphon MP" },
   { key: "AspdLimit", label: "ASPD Limit" },
 ];
 

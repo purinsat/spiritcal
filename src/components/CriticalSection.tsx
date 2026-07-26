@@ -3,7 +3,7 @@
 import * as React from "react";
 import { computeCrit } from "@/lib/formulas";
 import type { Attributes, Build, GearMods } from "@/lib/types";
-import { NumberInput, SharedStatBadge, cn } from "@/components/ui";
+import { NumberInput, SharedStatBadge, cn, FormulaDetails } from "@/components/ui";
 import { type AccentKey, SECTION_ACCENTS } from "@/lib/sectionAccents";
 
 // ---- Tile -------------------------------------------------------------------
@@ -167,8 +167,7 @@ export function CriticalSection({
       )}
 
       {/* --- Details --- */}
-      <div className="mb-5 rounded-xl border border-border bg-surface-2/40 p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Formula</p>
+      <FormulaDetails title="Formula">
         <DetailRow
           label="CritRate (raw)"
           value={`(LUK/3 + ⌊LUK/10⌋ + CRIT) × (1 + Crit%) = ${fmt(cr.critRateRaw, 1)}%`}
@@ -181,7 +180,7 @@ export function CriticalSection({
           label="Avg multiplier"
           value={`(1 − p) + p × (CritDmg/100) = ${fmt(cr.critMultiplier, 4)}×`}
         />
-      </div>
+      </FormulaDetails>
 
       {/* --- Inputs --- */}
       <div className="space-y-4">

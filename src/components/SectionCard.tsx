@@ -10,6 +10,11 @@ interface SectionCardProps {
   /** Shown in the header when collapsed so the section still communicates its key value. */
   summary?: React.ReactNode;
   defaultOpen?: boolean;
+  /** Controlled open state. When provided, the component switches to controlled mode
+   *  and the internal state is ignored. Pair with onOpenChange. */
+  open?: boolean;
+  /** Called whenever the user toggles the section. Required when open is provided. */
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
   /** Optional per-section accent color. Adds a left border strip + tinted header. */
@@ -26,13 +31,24 @@ export function SectionCard({
   subtitle,
   summary,
   defaultOpen = true,
+  open: openProp,
+  onOpenChange,
   children,
   className,
   accent,
   headerRight,
   dimmed,
 }: SectionCardProps) {
-  const [open, setOpen] = React.useState(defaultOpen);
+  const isControlled = openProp !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen);
+  const open = isControlled ? openProp : uncontrolledOpen;
+
+  const handleToggle = () => {
+    const next = !open;
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+
   const ac = accent ? SECTION_ACCENTS[accent] : null;
 
   return (
@@ -52,7 +68,8 @@ export function SectionCard({
       >
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          onClick={handleToggle}
           className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left transition-colors"
         >
           <div className="min-w-0">

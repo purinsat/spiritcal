@@ -13,12 +13,12 @@ Next.js (App Router) + TypeScript + Tailwind CSS v4. 100% client-side; deploys o
 The dev's real formulas + element chart live in `mechanics/` (`formulas.md`, `SpiritVale_Elements.png`, `stances.md`).
 They are encoded in exactly TWO files:
 - `src/data/gameData.ts` — constants: 10 elements + `EFFECTIVENESS` matrix, weapon Base Attack Delay, archetype HP%, status effects/resist, stances (`STANCES` + `getStance()`), `DEFAULT_DAMAGE`, defaults.
-- `src/lib/formulas.ts` — pure functions ported 1:1 from `formulas.md`; `computeCore()`, `computeSpeed()`, `computeCrit()`, `computeDamageBreakdown()`, and `computeStats()` (labelled stat sheet + formula text).
+- `src/lib/formulas.ts` — pure functions ported 1:1 from `formulas.md`; `computeCore()`, `computeSpeed()`, `computeCrit()`, `computeDefense()`, `computeUtility()`, `computeDamageBreakdown()`, and `computeStats()` (labelled stat sheet + formula text — calls the other `compute*` functions rather than recomputing inline, so the sheet can never drift from the sections).
 
 > To change game data/math, edit ONLY those two files (and `mechanics/` if the source changed). Formulas are ported verbatim — keep `FLOOR`/`ROUND` semantics and percent-as-whole-number (10 = 10%) convention.
 
 ## Tabs
-1. **Calculator** — three focused sections only (Total Attack, Attack & Cast Speed, Critical). Deliberately has NO full stat sheet and no raw input form; those live in Compare.
+1. **Calculator** — five focused sections (Total Attack, Attack & Cast Speed, Critical, Defense, Utility). Deliberately has NO full stat sheet and no raw input form; those live in Compare.
 2. **Damage** — Target & Element plus four switchable damage sources (AA, Skills, Status, Autocast) each with named multiplicative multipliers. Skills are a list with per-skill cast time and cooldown driving a rotation. Reads shared ATK/speed/crit live from the same build.
 3. **Compare** — side-by-side build comparison. Also the only place with the full `BuildForm` (every attribute, gear flat/percent, target) and the complete `computeStats()` table, so it doubles as the stat sheet.
 4. **Planner** — saved build presets.
@@ -35,13 +35,15 @@ They are encoded in exactly TWO files:
 - `src/components/TotalAttackSection.tsx` — three attack tiles + weapon/stance/attribute/gear inputs (accent-aware, no outer Card; wrapped by SectionCard in Calculator).
 - `src/components/SpeedSection.tsx` — hits/sec tiles, cast time/CTR, multistrike explainer, speed inputs (accent-aware).
 - `src/components/CriticalSection.tsx` — crit chance/damage/multiplier tiles, overcap warning, crit inputs, `critSectionSummary()`.
+- `src/components/DefenseSection.tsx` — physical/magic reduction tiles (with effective-HP sub-lines), a diminishing-returns readout, Flee/dodge vs a local non-persisted monster-level input, Perfect Dodge, Crit DEF, Reflect Damage, `defenseSectionSummary()`.
+- `src/components/UtilitySection.tsx` — Max HP/MP tiles with regen sub-lines, a siphon block (HP/MP per-hit + per-second), a leech block with a manual damage-per-second input and 20%-cap warning, Healing, `utilitySectionSummary()`.
 - `src/components/DamageTab.tsx` — the Damage tab. Sub-components: `SharedBanner`, `DurationControl`, `TargetBlock`, `SourceSwitch`, `AABlock`, `SkillRow`, `SkillsBlock`, `StatusBlock`, `AutocastBlock`, `CombinedBlock`. Reads `build.damage: DamageConfig`. Owns the only inputs for attack element, the enemy target, and `StatusDamagepct` outside `BuildForm`.
 - `src/components/MultiplierList.tsx` — reusable list of named `DamageMultiplier` entries; shows combined product readout. Exported `multiplierProduct()` helper.
 - `src/components/BuildForm.tsx` — inputs for a `Build` (attributes, gear flat/percent, target). Rendered only by `Compare.tsx` (twice). Do not add it back to the Calculator.
 - `Calculator.tsx` / `Compare.tsx` / `Planner.tsx` / `Essence.tsx` / `Reference.tsx` — the five non-Damage tabs. `Essence.tsx` is read-only (no props) and reads only `essenceData.ts`.
 - `src/data/essenceData.ts` — nine item substat pools (34 rows, 78 options), `BASE_STAT_ROW`, substat counts, and `buildReverseIndex()`. Lives in its own file (not `gameData.ts`) because it is a large self-contained table. `EssenceOption.min` is optional; add minimums here once confirmed.
 - `CreditFooter.tsx` — KRUN-KID credit + links (do not remove).
-- `src/components/ui.tsx` — primitives (Card, NumberInput, TextInput, Select, Button, Toggle, SharedStatBadge). `NumberInput`/`TextInput` take `compact` for dense inline rows; `NumberInput` skips its header row when unlabelled and renders `suffix` inside the field instead. `Toggle` supports `disabled`/`title`.
+- `src/components/ui.tsx` — primitives (Card, NumberInput, TextInput, Select, Button, Toggle, SharedStatBadge, FormulaDetails). `NumberInput`/`TextInput` take `compact` for dense inline rows; `NumberInput` skips its header row when unlabelled and renders `suffix` inside the field instead. `Toggle` supports `disabled`/`title`. `FormulaDetails` is a native `<details>` collapsible for formula/details blocks — closed by default, no state needed.
 - `src/app/globals.css` — Earthtone theme tokens (light/dark via `.dark`) + per-element accent colors + sec-damage/skill/status/autocast tokens.
 - `mechanics/speed-and-multistrike.md` — ASPD cap (193 = 7.14 hits/sec, raisable), Multistrike%, CTR formula decision.
 - `mechanics/skill-delay.md` — skill delay = `(200 - CastSpeed) / 50`, why that number is both seconds and a multiplier, and the global casts/sec ceiling.
@@ -69,6 +71,12 @@ Skills form a real timeline. Each has `cycle = max(actualCastTime + cooldownSec,
 - **Autocast + Multistrike**: dev-confirmed that Multistrike extra hits do NOT trigger autocast (`formulas.md`: "Multihits don't increase autocast chances, they are counted as one hit"). Procs scale on base attacks/sec, not effective hits/sec. Do not reintroduce a proc-basis toggle.
 - **Skill delay**: the in-game stat window's "Skill delay — time between skill casts" is `(200 - CastSpeed) / 50`, the twin of `AttackDelay = (200 - ASPD) / 50`. It is the SAME number as the cast time multiplier, because CastSpeed has no per-skill base term where ASPD has `BAD`. Never hard-code it (it is derived, never persisted) and never "fix" the multiplier/seconds duplication — see `mechanics/skill-delay.md`. Open assumption recorded there: the delay gates skills only, not autoattacks.
 - **Stance bonus**: only Two-Handed (empty off-hand) grants a stance bonus, +25% ATK/MATK. One-Handed (shield) grants NO bonus (`mult: 1.0`) — the previously-used +15% figure came from community guides and was disproven by an in-game check, Jul 2026. Do not restore +15% for One-Handed.
+- **Siphon is TWO separate per-hit stats**, `SiphonHp` and `SiphonMp` (`GearMods`), not one shared `Siphon` value — that was a modeling error, corrected Jul 2026 (see `mechanics/formulas.md`). Siphon is flat per hit, and multistrike extra hits each siphon, so siphon-per-second scales with `computeSpeed().effectiveHitsPerSec` — the OPPOSITE of the autocast rule. Do not reintroduce a single-stat model.
+- **Reflect formula (confirmed Jul 2026)**: `(LV + totalDEF/2 + flatDEF/2 + computedATK/2) * 4 * Reflect%`. The two DEF terms are: `c.def` (total DEF, scaled by VIT+Def%) and `g.DEF` (the raw flat DEF gear input, unscaled). ATK is `c.attackByType` — full computed melee/ranged/magic attack for the equipped weapon. The old `FlatDEF` field in `GearMods` has been removed; `g.DEF` covers both roles. `normalizeGear()` drops stale `FlatDEF` / `Siphon` keys from old presets by constructing result from `DEFAULT_GEAR` keys only.
+- **Leech caps are two separate pools** (confirmed Jul 2026): HP leech capped at 20% of max HP/sec independently from MP leech capped at 20% of max MP/sec. `computeUtility` already implements this correctly with two separate `Math.min` calls.
+- **Magic damage reduction** uses the same formula as physical: `100 / (MDEF + 100)` (confirmed Jul 2026). Already implemented correctly.
+- **Multistrike** (formerly "Double Attack"): renamed by the dev — same stat, same formula. Updated in `essenceData.ts` and `mechanics/essence.md`. `GearMods.Multistrikepct` was already using the new name.
+- **Formula blocks** in Critical, Speed, Defense, and Utility sections are collapsed by default via the `FormulaDetails` primitive in `ui.tsx` (native `<details>`/`<summary>`, no JS state, keyboard accessible).
 
 ## Conventions
 - Theme: CSS variables in `globals.css`, exposed to Tailwind via `@theme inline`. Dark mode = `.dark` on `<html>` (set pre-paint in `layout.tsx`, toggled in `ThemeToggle.tsx`).

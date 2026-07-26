@@ -1,7 +1,7 @@
 // LocalStorage preset persistence + URL share encoding for builds.
 
-import type { Build, DamageConfig, DamageMultiplier, SkillEntry } from "@/lib/types";
-import { makeDefaultBuild, DEFAULT_DAMAGE, DEFAULT_SKILL } from "@/data/gameData";
+import type { Build, DamageConfig, DamageMultiplier, GearMods, SkillEntry } from "@/lib/types";
+import { makeDefaultBuild, DEFAULT_DAMAGE, DEFAULT_GEAR, DEFAULT_SKILL } from "@/data/gameData";
 
 const PRESETS_KEY = "spiritcal.presets.v1";
 const THEME_KEY = "spiritcal.theme";
@@ -32,6 +32,35 @@ export function getStoredTheme(): "light" | "dark" | null {
 export function storeTheme(theme: "light" | "dark"): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(THEME_KEY, theme);
+}
+
+/** Legacy gear shape — fields that have been removed or renamed over time. */
+interface LegacyGearMods extends Partial<GearMods> {
+  /** Pre-split siphon stat (renamed to SiphonHp / SiphonMp). */
+  Siphon?: number;
+  /** Removed reflect-only stat — value is unused; DEF now covers both roles. */
+  FlatDEF?: number;
+}
+
+/** Builds a clean GearMods from a possibly-legacy saved object.
+ *  Reads only DEFAULT_GEAR's own keys so stale fields are consumed during migration
+ *  and then silently dropped rather than re-persisted. */
+function normalizeGear(g: LegacyGearMods | undefined): GearMods {
+  // Start from defaults, then copy only known keys from the saved object.
+  const result = { ...DEFAULT_GEAR };
+  if (g) {
+    for (const key of Object.keys(DEFAULT_GEAR) as (keyof GearMods)[]) {
+      if (key in g && typeof g[key] === "number") {
+        (result as Record<string, number>)[key] = g[key] as number;
+      }
+    }
+  }
+  // Legacy Siphon → SiphonHp + SiphonMp (only backfill when new fields were absent in the save).
+  if (g?.Siphon !== undefined) {
+    if (g.SiphonHp === undefined) result.SiphonHp = g.Siphon;
+    if (g.SiphonMp === undefined) result.SiphonMp = g.Siphon;
+  }
+  return result;
 }
 
 /** Pre-rotation shape: a single `skill` object instead of a `skills` list. */
@@ -108,7 +137,7 @@ export function normalizeBuild(b: Partial<Build>): Build {
     ...b,
     id: b.id ?? base.id,
     attrs: { ...base.attrs, ...b.attrs },
-    gear: { ...base.gear, ...b.gear },
+    gear: normalizeGear(b.gear as LegacyGearMods | undefined),
     target: { ...base.target, ...b.target },
     damage: normalizeDamage(
       b.damage as LegacyDamageConfig | undefined,

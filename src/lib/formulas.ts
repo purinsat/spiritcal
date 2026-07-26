@@ -299,6 +299,146 @@ export function computeCrit(build: Build): CritResult {
   return { critRateRaw, critChance, isOvercapped, overcapBy, critDamagePct, critMultiplier };
 }
 
+export interface DefenseResult {
+  def: number;
+  mdef: number;
+  physTaken: number; // 100 / (DEF + 100) — fraction of incoming physical damage taken
+  magicTaken: number; // same curve, on MDEF
+  physReductionPct: number;
+  magicReductionPct: number;
+  ehpPhysical: number; // maxHP / physTaken
+  ehpMagic: number; // maxHP / magicTaken
+  /** Extra reduction% a further +50 DEF would add — illustrates the diminishing curve. */
+  nextPhys50: number;
+  flee: number;
+  monsterHit: number;
+  dodgePct: number;
+  perfectDodge: number;
+  critDef: number;
+  reflect: number;
+}
+
+/** Computes all defense-related stats for the DefenseSection UI.
+ *  `monsterLevel` is a local what-if input (not persisted); defaults to the player's own LV. */
+export function computeDefense(build: Build, monsterLevel?: number): DefenseResult {
+  const { LV, LUK } = build.attrs;
+  const g = build.gear;
+  const c = computeCore(build);
+
+  // DamageReduction: 100 / (DEF + 100) returns the fraction of damage still TAKEN, not the
+  // reduction — the dev formula is phrased that way. Reduction% is derived from it.
+  const physTaken = 100 / (c.def + 100);
+  const magicTaken = 100 / (c.mdef + 100);
+  const physReductionPct = (1 - physTaken) * 100;
+  const magicReductionPct = (1 - magicTaken) * 100;
+  const ehpPhysical = physTaken > 0 ? c.hp / physTaken : Infinity;
+  const ehpMagic = magicTaken > 0 ? c.hp / magicTaken : Infinity;
+
+  // Diminishing returns: reduction% gained from the next +50 effective DEF.
+  const nextPhysTaken = 100 / (c.def + 50 + 100);
+  const nextPhys50 = (physTaken - nextPhysTaken) * 100;
+
+  // Chance to hit: 100 + Attacker Hit - Defender Flee, with Average Monster Hit = LV*2.
+  // Dodge is the inverse: your Flee minus the monster's hit stat.
+  const monsterHit = (monsterLevel ?? LV) * 2;
+  const dodgePct = Math.min(100, Math.max(0, c.flee - monsterHit));
+
+  const perfectDodge = LUK / 10 + g.PerfectDodge;
+  const critDef = LUK / 5 + g.CritDef;
+  // DEF appears twice: once as total DEF (c.def, scaled by VIT/Def%) and once as the raw flat
+  // DEF input (g.DEF, unscaled). ATK is the full computed attack for the equipped weapon type.
+  const reflect = (LV + c.def / 2 + g.DEF / 2 + c.attackByType / 2) * 4 * (g.Reflectpct / 100);
+
+  return {
+    def: c.def,
+    mdef: c.mdef,
+    physTaken,
+    magicTaken,
+    physReductionPct,
+    magicReductionPct,
+    ehpPhysical,
+    ehpMagic,
+    nextPhys50,
+    flee: c.flee,
+    monsterHit,
+    dodgePct,
+    perfectDodge,
+    critDef,
+    reflect,
+  };
+}
+
+export interface UtilityResult {
+  hp: number;
+  mp: number;
+  hpRegen: number;
+  mpRegen: number;
+  siphonHpPerHit: number;
+  siphonMpPerHit: number;
+  siphonHpPerSec: number;
+  siphonMpPerSec: number;
+  leechRaw: number; // Leech% × damage / 3, before the 20% cap
+  leechHp: number;
+  leechMp: number;
+  hpCap: number; // 20% of max HP
+  mpCap: number; // 20% of max MP
+  isHpCapped: boolean;
+  isMpCapped: boolean;
+  healing: number;
+}
+
+/** Computes all utility-related stats (HP/MP, regen, siphon, leech, healing). */
+export function computeUtility(build: Build): UtilityResult {
+  const { LV, STR, VIT, INT } = build.attrs;
+  const g = build.gear;
+  const c = computeCore(build);
+  const sp = computeSpeed(build);
+
+  const hpRegen =
+    (c.hp / 100 + VIT / 5 + g.FlatRegen) * (1 + VIT / 100 + g.Regenpct / 100) +
+    c.hp * (g.MaxHPRegenpct / 100);
+  const mpRegen =
+    (c.mp / 100 + INT / 5 + g.FlatRegen) * (1 + INT / 100 + g.Regenpct / 100) +
+    c.mp * (g.MaxMPRegenpct / 100);
+
+  const siphonHpPerHit = (g.SiphonHp * (LV + STR)) / 50;
+  const siphonMpPerHit = (g.SiphonMp * (LV + INT)) / 50;
+  // Siphon pays out on EVERY hit, including multistrike extras — the opposite of the
+  // autocast rule (where multihits count as one hit). Do not "fix" this into consistency.
+  const siphonHpPerSec = siphonHpPerHit * sp.effectiveHitsPerSec;
+  const siphonMpPerSec = siphonMpPerHit * sp.effectiveHitsPerSec;
+
+  const damageBasis = build.leechDamageBasis ?? 0;
+  const leechRaw = ((g.Leechpct / 100) * damageBasis) / 3;
+  const hpCap = 0.2 * c.hp;
+  const mpCap = 0.2 * c.mp;
+  const leechHp = Math.min(leechRaw, hpCap);
+  const leechMp = Math.min(leechRaw, mpCap);
+  const isHpCapped = leechRaw > hpCap;
+  const isMpCapped = leechRaw > mpCap;
+
+  const healing = (LV + INT + VIT) * 2.5 * (g.Healingpct / 100);
+
+  return {
+    hp: c.hp,
+    mp: c.mp,
+    hpRegen,
+    mpRegen,
+    siphonHpPerHit,
+    siphonMpPerHit,
+    siphonHpPerSec,
+    siphonMpPerSec,
+    leechRaw,
+    leechHp,
+    leechMp,
+    hpCap,
+    mpCap,
+    isHpCapped,
+    isMpCapped,
+    healing,
+  };
+}
+
 /** Multiplicative product of all enabled multipliers. */
 function multProduct(multipliers: DamageMultiplier[]): number {
   return multipliers.filter((m) => m.enabled).reduce((a, m) => a * (1 + m.pct / 100), 1);
@@ -638,14 +778,18 @@ export function computeStats(build: Build): StatResult[] {
     `${fmt(sp.skillCastTime, 1)}s skill — saves ${fmt(sp.secondsSaved, 3)}s`);
 
   // --- Defense ---
-  const damageReduction = 100 / (c.def + 100);
-  const critDef = LUK / 5 + g.CritDef;
-  push("def", "Physical DEF", c.def, "defense", "DEF * (1 + VIT/1000 + Def%)", fmt(c.def, 1));
-  push("mdef", "Magic DEF", c.mdef, "defense", "MDEF * (1 + VIT/1000 + Mdef%)", fmt(c.mdef, 1));
-  push("dmgReduction", "Damage Taken", damageReduction, "defense",
-    "100 / (DEF + 100)", `${fmt(damageReduction * 100, 1)}%`,
+  const df = computeDefense(build);
+  push("def", "Physical DEF", df.def, "defense", "DEF * (1 + VIT/1000 + Def%)", fmt(df.def, 1));
+  push("mdef", "Magic DEF", df.mdef, "defense", "MDEF * (1 + VIT/1000 + Mdef%)", fmt(df.mdef, 1));
+  push("dmgReduction", "Damage Taken", df.physTaken, "defense",
+    "100 / (DEF + 100)", `${fmt(df.physTaken * 100, 1)}%`,
     "Fraction of incoming physical damage taken");
-  push("critDef", "Crit DEF", critDef, "defense", "LUK/5 + CritDef", fmt(critDef, 1));
+  push("mdmgReduction", "Magic Damage Taken", df.magicTaken, "defense",
+    "100 / (MDEF + 100)", `${fmt(df.magicTaken * 100, 1)}%`,
+    "Fraction of incoming magic damage taken");
+  push("critDef", "Crit DEF", df.critDef, "defense", "LUK/5 + CritDef", fmt(df.critDef, 1));
+  push("reflect", "Reflect Damage", df.reflect, "defense",
+    "(LV + totalDEF/2 + flatDEF/2 + computedATK/2) * 4 * Reflect%", fmt(df.reflect, 0));
 
   // --- Crit ---
   const cr = computeCrit(build);
@@ -701,42 +845,40 @@ export function computeStats(build: Build): StatResult[] {
   }
 
   // --- Accuracy ---
-  const perfectDodge = LUK / 10 + g.PerfectDodge;
   push("hit", "Hit", c.hit, "accuracy", "(LV + DEX*2 + HIT + 25) * (1 + Hit%)");
-  push("flee", "Flee", c.flee, "accuracy", "(LV + AGI + LUK/5 + 3*FLOOR(AGI/10) + FLEE) * (1 + Flee%)");
-  push("perfectDodge", "Perfect Dodge", perfectDodge, "accuracy", "LUK/10 + PerfectDodge", `${fmt(perfectDodge, 1)}%`);
+  push("flee", "Flee", df.flee, "accuracy", "(LV + AGI + LUK/5 + 3*FLOOR(AGI/10) + FLEE) * (1 + Flee%)");
+  push("perfectDodge", "Perfect Dodge", df.perfectDodge, "accuracy", "LUK/10 + PerfectDodge", `${fmt(df.perfectDodge, 1)}%`);
 
   // --- Resources ---
-  const healthRegen =
-    (c.hp / 100 + VIT / 5 + g.FlatRegen) * (1 + VIT / 100 + g.Regenpct / 100) +
-    c.hp * (g.MaxHPRegenpct / 100);
-  const manaRegen =
-    (c.mp / 100 + INT / 5 + g.FlatRegen) * (1 + INT / 100 + g.Regenpct / 100) +
-    c.mp * (g.MaxMPRegenpct / 100);
-  push("hp", "Max HP", c.hp, "resources",
-    "[(90 + LV*10 + LSUM*Archetype%)*(1+VIT/100) + HP] * (1+Hp%)", fmt(c.hp, 0),
+  const ut = computeUtility(build);
+  push("hp", "Max HP", ut.hp, "resources",
+    "[(90 + LV*10 + LSUM*Archetype%)*(1+VIT/100) + HP] * (1+Hp%)", fmt(ut.hp, 0),
     "LSUM = LV*(LV+1)/2, capped at LV130");
-  push("mp", "Max MP", c.mp, "resources", "[(45 + LV*5)*(1+INT/100) + MP] * (1+Mp%)", fmt(c.mp, 0));
-  push("hpRegen", "HP Regen", healthRegen, "resources",
-    "(MaxHP/100 + VIT/5 + FlatRegen)*(1+VIT/100+Regen%) + MaxHP*MaxHPRegen%", `${fmt(healthRegen, 1)}/s`);
-  push("mpRegen", "MP Regen", manaRegen, "resources",
-    "(MaxMP/100 + INT/5 + FlatRegen)*(1+INT/100+Regen%) + MaxMP*MaxMPRegen%", `${fmt(manaRegen, 1)}/s`);
+  push("mp", "Max MP", ut.mp, "resources", "[(45 + LV*5)*(1+INT/100) + MP] * (1+Mp%)", fmt(ut.mp, 0));
+  push("hpRegen", "HP Regen", ut.hpRegen, "resources",
+    "(MaxHP/100 + VIT/5 + FlatRegen)*(1+VIT/100+Regen%) + MaxHP*MaxHPRegen%", `${fmt(ut.hpRegen, 1)}/s`);
+  push("mpRegen", "MP Regen", ut.mpRegen, "resources",
+    "(MaxMP/100 + INT/5 + FlatRegen)*(1+INT/100+Regen%) + MaxMP*MaxMPRegen%", `${fmt(ut.mpRegen, 1)}/s`);
 
   // --- Utility ---
-  const reflect =
-    (LV + c.def / 2 + g.FlatDEF / 2 + g.ATK / 2) * 4 * (g.Reflectpct / 100);
   const healing = (LV + INT + VIT) * 2.5 * (g.Healingpct / 100);
   const statusDamage = ((LV + STR + AGI + INT) / 10) * 1 * (g.StatusDamagepct / 100);
-  const siphonHp = (g.Siphon * (LV + STR)) / 50;
-  const siphonMp = (g.Siphon * (LV + INT)) / 50;
-  push("reflect", "Reflect Damage", reflect, "utility",
-    "(LV + DEF/2 + FlatDEF/2 + ATK/2) * 4 * Reflect%", fmt(reflect, 0));
-  push("healing", "Healing", healing, "utility",
-    "(LV + INT + VIT) * 2.5 * Healing%", fmt(healing, 0));
+  push("healing", "Healing", ut.healing, "utility",
+    "(LV + INT + VIT) * 2.5 * Healing%", fmt(ut.healing, 0));
   push("statusDamage", "Status Damage", statusDamage, "utility",
     "(LV + STR + AGI + INT)/10 * Stacks * StatusDamage%", fmt(statusDamage, 1), "Per stack");
-  push("siphonHp", "Siphon HP", siphonHp, "utility", "Siphon * (LV + STR) / 50", fmt(siphonHp, 1));
-  push("siphonMp", "Siphon MP", siphonMp, "utility", "Siphon * (LV + INT) / 50", fmt(siphonMp, 1));
+  push("siphonHp", "Siphon HP (per hit)", ut.siphonHpPerHit, "utility",
+    "SiphonHp * (LV + STR) / 50", fmt(ut.siphonHpPerHit, 1),
+    `× ${fmt(sp.effectiveHitsPerSec, 2)} hits/sec = ${fmt(ut.siphonHpPerSec, 1)}/s`);
+  push("siphonMp", "Siphon MP (per hit)", ut.siphonMpPerHit, "utility",
+    "SiphonMp * (LV + INT) / 50", fmt(ut.siphonMpPerHit, 1),
+    `× ${fmt(sp.effectiveHitsPerSec, 2)} hits/sec = ${fmt(ut.siphonMpPerSec, 1)}/s`);
+  push("leechHp", "Leech HP", ut.leechHp, "utility",
+    "min(Leech% * damage / 3, 20% of maxHP)", `${fmt(ut.leechHp, 1)}/s`,
+    ut.isHpCapped ? `Capped — raw ${fmt(ut.leechRaw, 1)}/s exceeds 20% of max HP` : undefined);
+  push("leechMp", "Leech MP", ut.leechMp, "utility",
+    "min(Leech% * damage / 3, 20% of maxMP)", `${fmt(ut.leechMp, 1)}/s`,
+    ut.isMpCapped ? `Capped — raw ${fmt(ut.leechRaw, 1)}/s exceeds 20% of max MP` : undefined);
 
   // --- Vs Target (optional) ---
   if (build.target.enabled) {

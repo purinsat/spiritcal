@@ -2,7 +2,16 @@
 // All class strings are LITERAL so Tailwind's scanner picks them up.
 // Import AccentKey and SECTION_ACCENTS wherever you need section-specific colors.
 
-export type AccentKey = "attack" | "speed" | "crit" | "damage" | "skill" | "status" | "autocast";
+export type AccentKey =
+  | "attack"
+  | "speed"
+  | "crit"
+  | "damage"
+  | "skill"
+  | "status"
+  | "autocast"
+  | "defense"
+  | "utility";
 
 /** One accent entry used by the Essence pool cards — simpler shape than SectionAccent. */
 export interface EssenceAccent {
@@ -188,5 +197,27 @@ export const SECTION_ACCENTS: Record<AccentKey, SectionAccent> = {
     tileLabelText: "text-sec-autocast",
     badgeBg: "bg-sec-autocast/20",
     badgeText: "text-sec-autocast",
+  },
+  defense: {
+    leftBorder: "border-l-4 border-l-sec-defense",
+    headerBg: "bg-sec-defense/5",
+    titleText: "text-sec-defense",
+    tileBorder: "border-sec-defense/40",
+    tileBg: "bg-sec-defense/8",
+    tileText: "text-sec-defense",
+    tileLabelText: "text-sec-defense",
+    badgeBg: "bg-sec-defense/20",
+    badgeText: "text-sec-defense",
+  },
+  utility: {
+    leftBorder: "border-l-4 border-l-sec-utility",
+    headerBg: "bg-sec-utility/5",
+    titleText: "text-sec-utility",
+    tileBorder: "border-sec-utility/40",
+    tileBg: "bg-sec-utility/8",
+    tileText: "text-sec-utility",
+    tileLabelText: "text-sec-utility",
+    badgeBg: "bg-sec-utility/20",
+    badgeText: "text-sec-utility",
   },
 };

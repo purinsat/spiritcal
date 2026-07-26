@@ -26,13 +26,13 @@ Each bullet is one row; options within a row are mutually exclusive.
 - ATK% +5 / MATK% +5  
 - Melee Damage +5 / Magic Damage +5  
 - Crit +10 / Hit +20 / Attack Speed +10 / Flat ATK +5 / Flat MATK +5  
-- Crit Damage +10 / Leech +5 / Chain +1 / Double Attack +25  
+- Crit Damage +10 / Leech +5 / Chain +1 / Multistrike +25  
 
 ### Ranged Weapon (5 substats)
 - ATK% +5 / MATK% +5  
 - Ranged Damage +5 / Magic Damage +5  
 - Crit +10 / Hit +20 / Attack Speed +10 / Flat ATK +5 / Flat MATK +5  
-- Crit Damage +10 / Leech +5 / Range +1 / Double Attack +25  
+- Crit Damage +10 / Leech +5 / Range +1 / Multistrike +25  
 
 ### Magic Weapon (5 substats)
 - ATK% +5 / MATK% +5  

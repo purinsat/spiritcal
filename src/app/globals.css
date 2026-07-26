@@ -30,6 +30,8 @@
   --sec-skill: #3f7d84;
   --sec-status: #5f7d5a;
   --sec-autocast: #7a5c9e;
+  --sec-defense: #55708a;
+  --sec-utility: #7d5c3a;
   /* Essence tab — two extra Earthtone slots for nine distinct pool colours */
   --sec-essence-a: #7d5c3a;
   --sec-essence-b: #4a6b5a;
@@ -62,6 +64,8 @@
   --sec-skill: #79b6bd;
   --sec-status: #93b58c;
   --sec-autocast: #ab8fce;
+  --sec-defense: #9ab4cc;
+  --sec-utility: #c49670;
   --sec-essence-a: #c49670;
   --sec-essence-b: #7aaa90;
 }
@@ -103,6 +107,8 @@
   --color-sec-skill: var(--sec-skill);
   --color-sec-status: var(--sec-status);
   --color-sec-autocast: var(--sec-autocast);
+  --color-sec-defense: var(--sec-defense);
+  --color-sec-utility: var(--sec-utility);
   --color-sec-essence-a: var(--sec-essence-a);
   --color-sec-essence-b: var(--sec-essence-b);
 

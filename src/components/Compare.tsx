@@ -11,6 +11,7 @@ import { Button, Card, Select, cn } from "@/components/ui";
 const LOWER_BETTER = new Set([
   "attackDelay",
   "dmgReduction",
+  "mdmgReduction",
   "castTime",
   "skillDelay",
   "actualCastTime",

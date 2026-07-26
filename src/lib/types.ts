@@ -71,9 +71,11 @@ export interface GearMods {
   CritDef: number;
   HP: number;
   MP: number;
-  FlatDEF: number;
   FlatRegen: number;
-  Siphon: number;
+  /** Flat per-hit HP recovered on autoattacks (see mechanics/formulas.md "Leech & Siphon"). */
+  SiphonHp: number;
+  /** Flat per-hit MP recovered on autoattacks. */
+  SiphonMp: number;
   // percent
   ATKpct: number;
   MATKpct: number;
@@ -122,6 +124,8 @@ export interface Build {
   durationSec: number;
   /** Damage Output tab configuration. */
   damage: DamageConfig;
+  /** Manual "damage dealt per second" used to estimate Leech recovery. */
+  leechDamageBasis: number;
 }
 
 export type StatGroup =

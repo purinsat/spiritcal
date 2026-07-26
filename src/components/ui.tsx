@@ -273,3 +273,23 @@ export function TextInput({
     </label>
   );
 }
+
+/** Native-disclosure collapsible wrapper for formula/details blocks.
+ *  Closed by default; no JS state required — keyboard accessible via <details>. */
+export function FormulaDetails({
+  title = "Formula",
+  children,
+}: {
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group mb-5 rounded-xl border border-border bg-surface-2/40">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-xs font-semibold uppercase tracking-wide text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <span className="text-sm transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="px-4 pb-4">{children}</div>
+    </details>
+  );
+}
