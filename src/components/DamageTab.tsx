@@ -1114,6 +1114,13 @@ function CombinedBlock({ build, dm }: { build: Build; dm: Breakdown }) {
 
 // ─── Main DamageTab ───────────────────────────────────────────────────────────
 
+const DAMAGE_SECTION_KEYS = ["target", "aa", "skills", "status", "autocast", "combined"] as const;
+type DamageSectionKey = (typeof DAMAGE_SECTION_KEYS)[number];
+
+const DAMAGE_INITIAL_OPEN: Record<DamageSectionKey, boolean> = {
+  target: false, aa: false, skills: false, status: false, autocast: false, combined: false,
+};
+
 export function DamageTab({
   build,
   onChange,
@@ -1125,6 +1132,18 @@ export function DamageTab({
 }) {
   const dm = React.useMemo(() => computeDamageBreakdown(build), [build]);
   const d = build.damage;
+
+  const [openSections, setOpenSections] = React.useState<Record<DamageSectionKey, boolean>>(
+    DAMAGE_INITIAL_OPEN,
+  );
+  const setSection = (key: DamageSectionKey, value: boolean) =>
+    setOpenSections((prev) => ({ ...prev, [key]: value }));
+
+  const allOpen = DAMAGE_SECTION_KEYS.every((k) => openSections[k]);
+  const toggleAll = () =>
+    setOpenSections(
+      Object.fromEntries(DAMAGE_SECTION_KEYS.map((k) => [k, !allOpen])) as Record<DamageSectionKey, boolean>,
+    );
 
   const setGroup = <K extends keyof DamageConfig>(key: K, value: DamageConfig[K]) =>
     onChange({ ...build, damage: { ...d, [key]: value } });
@@ -1139,13 +1158,19 @@ export function DamageTab({
     <div className="space-y-4">
       <SharedBanner build={build} dm={dm} onEditInCalculator={onEditInCalculator} />
       <DurationControl build={build} onChange={onChange} />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={toggleAll}>
+          {allOpen ? "⌃ Collapse all" : "⌄ Expand all"}
+        </Button>
+      </div>
 
       {/* Target & Element */}
       <SectionCard
         title="Target & Element"
         subtitle="Who you are hitting — element matchup, defence, and dodge."
         summary={dm.targetEnabled ? `${fmtX(dm.elMult)} element` : "Off"}
-        defaultOpen={false}
+        open={openSections.target}
+        onOpenChange={(v) => setSection("target", v)}
         accent="damage"
         dimmed={!dm.targetEnabled}
         headerRight={
@@ -1165,7 +1190,8 @@ export function DamageTab({
         title="Auto Attack"
         subtitle="Flat ATK × effective hits/sec with your unique multipliers."
         summary={aaSummary}
-        defaultOpen
+        open={openSections.aa}
+        onOpenChange={(v) => setSection("aa", v)}
         accent="damage"
         dimmed={!dm.aaOn}
         headerRight={
@@ -1183,7 +1209,8 @@ export function DamageTab({
         title="Skills"
         subtitle="Add each skill with its cast time and cooldown to build a rotation."
         summary={skillSummary}
-        defaultOpen
+        open={openSections.skills}
+        onOpenChange={(v) => setSection("skills", v)}
         accent="skill"
         dimmed={!dm.skillsOn}
         headerRight={
@@ -1201,7 +1228,8 @@ export function DamageTab({
         title="Status Damage"
         subtitle="Burning, bleeding, or other status ticks."
         summary={statusSummary}
-        defaultOpen={false}
+        open={openSections.status}
+        onOpenChange={(v) => setSection("status", v)}
         accent="status"
         dimmed={!dm.statusOn}
         headerRight={
@@ -1219,7 +1247,8 @@ export function DamageTab({
         title={`Autocast${d.autocast.name ? ` — ${d.autocast.name}` : ""}`}
         subtitle="Procs from autoattacks at a % chance. Switch off for classes without it."
         summary={acSummary}
-        defaultOpen={false}
+        open={openSections.autocast}
+        onOpenChange={(v) => setSection("autocast", v)}
         accent="autocast"
         dimmed={!dm.autocastOn}
         headerRight={
@@ -1243,7 +1272,8 @@ export function DamageTab({
         title="Combined Overview"
         subtitle="One rotation: skills, autoattacks in the gaps, autocast procs, and status ticks."
         summary={totalSummary}
-        defaultOpen
+        open={openSections.combined}
+        onOpenChange={(v) => setSection("combined", v)}
       >
         <CombinedBlock build={build} dm={dm} />
       </SectionCard>

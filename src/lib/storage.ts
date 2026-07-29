@@ -1,7 +1,8 @@
 // LocalStorage preset persistence + URL share encoding for builds.
 
-import type { Build, DamageConfig, DamageMultiplier, GearMods, SkillEntry } from "@/lib/types";
+import type { Build, DamageConfig, DamageMultiplier, GearMods, LoadoutSet, SkillEntry } from "@/lib/types";
 import { makeDefaultBuild, DEFAULT_DAMAGE, DEFAULT_GEAR, DEFAULT_SKILL } from "@/data/gameData";
+import { GEAR_SLOTS, makeDefaultSlot } from "@/data/loadoutData";
 
 const PRESETS_KEY = "spiritcal.presets.v1";
 const THEME_KEY = "spiritcal.theme";
@@ -40,6 +41,8 @@ interface LegacyGearMods extends Partial<GearMods> {
   Siphon?: number;
   /** Removed reflect-only stat — value is unused; DEF now covers both roles. */
   FlatDEF?: number;
+  /** Pre-split leech stat (renamed to LeechHppct; MP leech not in game yet). */
+  Leechpct?: number;
 }
 
 /** Builds a clean GearMods from a possibly-legacy saved object.
@@ -59,6 +62,10 @@ function normalizeGear(g: LegacyGearMods | undefined): GearMods {
   if (g?.Siphon !== undefined) {
     if (g.SiphonHp === undefined) result.SiphonHp = g.Siphon;
     if (g.SiphonMp === undefined) result.SiphonMp = g.Siphon;
+  }
+  // Legacy Leechpct → LeechHppct only (MP leech didn't exist; don't copy value to MP).
+  if (g?.Leechpct !== undefined && g.LeechHppct === undefined) {
+    result.LeechHppct = g.Leechpct;
   }
   return result;
 }
@@ -173,4 +180,98 @@ export function buildShareUrl(build: Build): string {
   url.searchParams.set("b", encodeBuild(build));
   url.hash = "";
   return url.toString();
+}
+
+// ── Loadout persistence ───────────────────────────────────────────────────────
+
+const LOADOUTS_KEY = "spiritcal.loadouts.v1";
+
+/** Ensure a saved set has all current slots and all current slot fields. */
+function normalizeLoadoutSet(set: LoadoutSet): LoadoutSet {
+  const slots = { ...set.slots };
+  for (const slotDef of GEAR_SLOTS) {
+    if (!slots[slotDef.id]) {
+      slots[slotDef.id] = makeDefaultSlot(slotDef);
+    } else if (slots[slotDef.id].name === undefined) {
+      // Backfill name field for sets saved before it was added.
+      slots[slotDef.id] = { ...slots[slotDef.id], name: "" };
+    }
+  }
+  return { ...set, slots };
+}
+
+export function loadLoadouts(): LoadoutSet[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LOADOUTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as LoadoutSet[];
+    return Array.isArray(parsed) ? parsed.map(normalizeLoadoutSet) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLoadouts(sets: LoadoutSet[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LOADOUTS_KEY, JSON.stringify(sets));
+}
+
+// ── JSON file export / import ─────────────────────────────────────────────────
+
+interface LoadoutsFilePayload {
+  app: "spiritcal";
+  kind: "loadouts";
+  version: number;
+  exportedAt: string;
+  sets: LoadoutSet[];
+}
+
+/** Download all sets as a timestamped JSON file. */
+export function exportLoadoutsToFile(sets: LoadoutSet[]): void {
+  if (typeof window === "undefined") return;
+  const payload: LoadoutsFilePayload = {
+    app: "spiritcal",
+    kind: "loadouts",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    sets,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0, 10);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spiritcal-loadouts-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Parse a loadout JSON file string into a list of sets.
+ * Accepts the wrapper payload OR a bare array for hand-edited files.
+ * Throws if the content cannot be parsed as a valid loadout list.
+ */
+export function parseLoadoutsFile(text: string): LoadoutSet[] {
+  const parsed: unknown = JSON.parse(text);
+
+  let rawSets: unknown[];
+  if (Array.isArray(parsed)) {
+    rawSets = parsed;
+  } else if (
+    parsed !== null &&
+    typeof parsed === "object" &&
+    "kind" in parsed &&
+    (parsed as Record<string, unknown>).kind === "loadouts" &&
+    Array.isArray((parsed as Record<string, unknown>).sets)
+  ) {
+    rawSets = (parsed as LoadoutsFilePayload).sets;
+  } else {
+    throw new Error("Not a SpiritCal loadout file");
+  }
+
+  if (rawSets.length === 0) throw new Error("File contains no sets");
+
+  // Normalize every set (fills missing slots + fields for forward compat).
+  return rawSets.map((s) => normalizeLoadoutSet(s as LoadoutSet));
 }

@@ -55,7 +55,7 @@ export function computeCore(build: Build): Computed {
   const stanceMult = getStance(build).mult;
 
   const meleeAtk =
-    (LV / 4 + STR * 1.5 + DEX / 5 + LUK / 5 + g.MASTERY + g.ATK * (1 + DEX / 200)) *
+    (LV / 4 + STR * 1.5 + DEX / 5 + LUK / 5 + g.MASTERY + g.ATK * (1 + STR / 200)) *
     (1 + FLOOR(STR / 10) / 100) *
     (1 + atkPct) *
     stanceMult;
@@ -77,7 +77,7 @@ export function computeCore(build: Build): Computed {
     type === "magic" ? matk : type === "ranged" ? rangedAtk : meleeAtk;
 
   const def = g.DEF * (1 + VIT / 1000 + g.DEFpct / 100);
-  const mdef = g.MDEF * (1 + VIT / 1000 + g.MDEFpct / 100);
+  const mdef = g.MDEF * (1 + INT / 1000 + g.MDEFpct / 100);
 
   const hit = (LV + DEX * 2 + g.HIT + 25) * (1 + g.Hitpct / 100);
   const flee =
@@ -377,7 +377,8 @@ export interface UtilityResult {
   siphonMpPerHit: number;
   siphonHpPerSec: number;
   siphonMpPerSec: number;
-  leechRaw: number; // Leech% × damage / 3, before the 20% cap
+  leechHpRaw: number; // HP Leech% × damage / 3, before cap
+  leechMpRaw: number; // MP Leech% × damage / 3, before cap
   leechHp: number;
   leechMp: number;
   hpCap: number; // 20% of max HP
@@ -409,13 +410,14 @@ export function computeUtility(build: Build): UtilityResult {
   const siphonMpPerSec = siphonMpPerHit * sp.effectiveHitsPerSec;
 
   const damageBasis = build.leechDamageBasis ?? 0;
-  const leechRaw = ((g.Leechpct / 100) * damageBasis) / 3;
   const hpCap = 0.2 * c.hp;
   const mpCap = 0.2 * c.mp;
-  const leechHp = Math.min(leechRaw, hpCap);
-  const leechMp = Math.min(leechRaw, mpCap);
-  const isHpCapped = leechRaw > hpCap;
-  const isMpCapped = leechRaw > mpCap;
+  const leechHpRaw = ((g.LeechHppct / 100) * damageBasis) / 3;
+  const leechMpRaw = ((g.LeechMppct / 100) * damageBasis) / 3;
+  const leechHp = Math.min(leechHpRaw, hpCap);
+  const leechMp = Math.min(leechMpRaw, mpCap);
+  const isHpCapped = leechHpRaw > hpCap;
+  const isMpCapped = leechMpRaw > mpCap;
 
   const healing = (LV + INT + VIT) * 2.5 * (g.Healingpct / 100);
 
@@ -428,7 +430,8 @@ export function computeUtility(build: Build): UtilityResult {
     siphonMpPerHit,
     siphonHpPerSec,
     siphonMpPerSec,
-    leechRaw,
+    leechHpRaw,
+    leechMpRaw,
     leechHp,
     leechMp,
     hpCap,
@@ -737,7 +740,7 @@ export function computeStats(build: Build): StatResult[] {
   const stance = getStance(build);
   const stanceNote = `× ${stance.mult} (${stance.label} stance)`;
   push("meleeAtk", "Melee Attack", c.meleeAtk, "offense",
-    `(LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK*(1+DEX/200)) * (1+FLOOR(STR/10)/100) * (1+ATK%) ${stanceNote}`);
+    `(LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK*(1+STR/200)) * (1+FLOOR(STR/10)/100) * (1+ATK%) ${stanceNote}`);
   push("rangedAtk", "Ranged Attack", c.rangedAtk, "offense",
     `(LV/4 + DEX + STR/5 + LUK/5 + MASTERY + ATK*(1+DEX/200)) * (1+FLOOR(DEX/10)/100) * (1+ATK%) ${stanceNote}`);
   push("matk", "Magic Attack", c.matk, "offense",
@@ -780,7 +783,7 @@ export function computeStats(build: Build): StatResult[] {
   // --- Defense ---
   const df = computeDefense(build);
   push("def", "Physical DEF", df.def, "defense", "DEF * (1 + VIT/1000 + Def%)", fmt(df.def, 1));
-  push("mdef", "Magic DEF", df.mdef, "defense", "MDEF * (1 + VIT/1000 + Mdef%)", fmt(df.mdef, 1));
+  push("mdef", "Magic DEF", df.mdef, "defense", "MDEF * (1 + INT/1000 + Mdef%)", fmt(df.mdef, 1));
   push("dmgReduction", "Damage Taken", df.physTaken, "defense",
     "100 / (DEF + 100)", `${fmt(df.physTaken * 100, 1)}%`,
     "Fraction of incoming physical damage taken");
@@ -874,11 +877,11 @@ export function computeStats(build: Build): StatResult[] {
     "SiphonMp * (LV + INT) / 50", fmt(ut.siphonMpPerHit, 1),
     `× ${fmt(sp.effectiveHitsPerSec, 2)} hits/sec = ${fmt(ut.siphonMpPerSec, 1)}/s`);
   push("leechHp", "Leech HP", ut.leechHp, "utility",
-    "min(Leech% * damage / 3, 20% of maxHP)", `${fmt(ut.leechHp, 1)}/s`,
-    ut.isHpCapped ? `Capped — raw ${fmt(ut.leechRaw, 1)}/s exceeds 20% of max HP` : undefined);
+    "min(HP Leech% * damage / 3, 20% of maxHP)", `${fmt(ut.leechHp, 1)}/s`,
+    ut.isHpCapped ? `Capped — raw ${fmt(ut.leechHpRaw, 1)}/s exceeds 20% of max HP` : undefined);
   push("leechMp", "Leech MP", ut.leechMp, "utility",
-    "min(Leech% * damage / 3, 20% of maxMP)", `${fmt(ut.leechMp, 1)}/s`,
-    ut.isMpCapped ? `Capped — raw ${fmt(ut.leechRaw, 1)}/s exceeds 20% of max MP` : undefined);
+    "min(MP Leech% * damage / 3, 20% of maxMP)", `${fmt(ut.leechMp, 1)}/s`,
+    ut.isMpCapped ? `Capped — raw ${fmt(ut.leechMpRaw, 1)}/s exceeds 20% of max MP` : undefined);
 
   // --- Vs Target (optional) ---
   if (build.target.enabled) {

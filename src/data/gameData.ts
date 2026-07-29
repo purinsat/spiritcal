@@ -259,7 +259,8 @@ export const DEFAULT_GEAR: GearMods = {
   Reflectpct: 0,
   Healingpct: 0,
   StatusDamagepct: 0,
-  Leechpct: 0,
+  LeechHppct: 0,
+  LeechMppct: 0,
   Multistrikepct: 0,
   AspdLimit: 193,
 };

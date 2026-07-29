@@ -11,6 +11,7 @@ import {
 import { Calculator } from "@/components/Calculator";
 import { Compare } from "@/components/Compare";
 import { DamageTab } from "@/components/DamageTab";
+import { Loadout } from "@/components/Loadout";
 import { Planner } from "@/components/Planner";
 import { Reference } from "@/components/Reference";
 import Essence from "@/components/Essence";
@@ -18,11 +19,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreditFooter } from "@/components/CreditFooter";
 import { cn } from "@/components/ui";
 
-type Tab = "calculator" | "damage" | "compare" | "planner" | "essence" | "reference";
+type Tab = "calculator" | "damage" | "loadout" | "compare" | "planner" | "essence" | "reference";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "calculator", label: "Calculator" },
   { id: "damage", label: "Damage" },
+  { id: "loadout", label: "Loadout" },
   { id: "compare", label: "Compare" },
   { id: "planner", label: "Planner" },
   { id: "essence", label: "Essence" },
@@ -121,6 +123,7 @@ export function App() {
             onEditInCalculator={() => setTab("calculator")}
           />
         )}
+        {tab === "loadout" && <Loadout />}
         {tab === "compare" && (
           <Compare
             a={compareA}

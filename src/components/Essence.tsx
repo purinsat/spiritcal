@@ -57,11 +57,16 @@ function OptionPill({
 
 function PoolCard({ pool }: { pool: EssencePool }) {
   const accent = ESSENCE_ACCENTS[pool.key];
-  const rowsDrawn = pool.substats - 1;
+  // Items start at 3 substats; the first is always a base attr, so rows drawn = substats - 1.
+  const defaultRows = 3 - 1; // 2 pool rows at the start
+  const maxRows = pool.maxSubstats - 1;
+  const repeatsRow = maxRows > pool.rows.length;
   const drawText =
-    rowsDrawn >= pool.rows.length
-      ? `all ${pool.rows.length} rows`
-      : `${rowsDrawn} of these ${pool.rows.length} rows`;
+    defaultRows === maxRows
+      ? `${defaultRows} rows (fixed)`
+      : repeatsRow
+        ? `2–${pool.rows.length} rows (${pool.rows.length + 1}–${maxRows} repeat a row)`
+        : `2–${maxRows} of these ${pool.rows.length} rows`;
 
   return (
     <div
@@ -80,18 +85,18 @@ function PoolCard({ pool }: { pool: EssencePool }) {
             {pool.label}
           </h3>
           <p className="text-[11px] text-muted">
-            Base stat + {drawText}
+            Starts 3 substats, max {pool.maxSubstats} · {drawText}
           </p>
         </div>
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-            accent.valueBg,
-            accent.valueText
-          )}
-        >
-          {pool.substats} substats
-        </span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              accent.valueBg,
+              accent.valueText
+            )}
+          >
+            3–{pool.maxSubstats} substats
+          </span>
       </div>
 
       {/* Rows — each row is a separate dashed box */}
@@ -159,8 +164,9 @@ function RulesCard() {
             2
           </span>
           <span>
-            <strong>Remaining substats each come from a different row</strong> in that slot&apos;s pool.
-            One option is picked per row, and no two substats share the same category.
+            <strong>Remaining substats each come from a pool row</strong> in no fixed order.
+            One option is picked per row, and no two substats share the same row —{" "}
+            <em>until the final expansion repeats a row</em>.
           </span>
         </li>
         <li className="flex gap-3">
@@ -168,11 +174,14 @@ function RulesCard() {
             3
           </span>
           <span>
-            <strong>Maximum substat counts:</strong>{" "}
-            <span className="font-semibold">Weapons 5</span>,{" "}
-            <span className="font-semibold">most gear 4</span>,{" "}
-            <span className="font-semibold">Artifacts 3</span>.
-            Chest armor has 5 rows to choose 3 from, so no item ever gets all five chest modifiers.
+            <strong>All items start at 3 substats</strong> and can be expanded.{" "}
+            <span className="font-semibold">Weapons</span> expand to a max of{" "}
+            <span className="font-semibold">6</span>.{" "}
+            <span className="font-semibold">Armor &amp; accessories</span> expand to{" "}
+            <span className="font-semibold">5</span>.{" "}
+            <span className="font-semibold">Artifacts</span> stay at{" "}
+            <span className="font-semibold">3</span>.
+            The last expansion on weapons (6th) and fully-upgraded armor (5th) repeats one row from that slot&apos;s pool.
           </span>
         </li>
         <li className="flex gap-3">

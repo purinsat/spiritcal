@@ -72,7 +72,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 type AttrField = { key: keyof Attributes; label: string; hint: string; shared?: boolean };
 const ATTR_FIELDS: AttrField[] = [
-  { key: "VIT", label: "VIT", hint: "Raises DEF and MDEF", shared: true },
+  { key: "VIT", label: "VIT", hint: "Raises DEF", shared: true },
+  { key: "INT", label: "INT", hint: "Raises MDEF", shared: true },
   { key: "LUK", label: "LUK", hint: "Raises Flee, Perfect Dodge, and Crit DEF", shared: true },
   { key: "AGI", label: "AGI", hint: "Raises Flee", shared: true },
 ];
@@ -184,7 +185,7 @@ export function DefenseSection({
       {/* --- Details --- */}
       <FormulaDetails title="Formula">
         <DetailRow label="DEF" value={`DEF × (1 + VIT/1000 + Def%) = ${fmt(df.def)}`} />
-        <DetailRow label="MDEF" value={`MDEF × (1 + VIT/1000 + Mdef%) = ${fmt(df.mdef)}`} />
+        <DetailRow label="MDEF" value={`MDEF × (1 + INT/1000 + Mdef%) = ${fmt(df.mdef)}`} />
         <DetailRow
           label="Damage taken"
           value={`100 / (DEF + 100) = ${fmt(df.physTaken * 100)}%`}
@@ -201,7 +202,7 @@ export function DefenseSection({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Character stat
           </p>
-          <div className="grid grid-cols-3 gap-3 sm:max-w-md">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {ATTR_FIELDS.map((f) => (
               <NumberInput
                 key={f.key}

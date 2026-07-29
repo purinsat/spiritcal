@@ -30,8 +30,13 @@ export interface EssencePool {
   key: SlotKey;
   label: string;
   icon: string;
-  /** Total number of substats this item type can carry (including the shared base-attribute row). */
-  substats: number;
+  /**
+   * Maximum number of substats this item type can reach after full expansion
+   * (including the shared base-attribute row).
+   * Weapons: 6 | Armor/Accessories: 5 | Artifacts: 3.
+   * All items START at 3 substats and expand one at a time.
+   */
+  maxSubstats: number;
   /** The modifier rows specific to this slot. Excludes the shared base-attribute row. */
   rows: EssenceRow[];
 }
@@ -55,7 +60,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "meleeWeapon",
     label: "Melee Weapon",
     icon: "⚔",
-    substats: 5,
+    maxSubstats: 6,
     rows: [
       { options: [{ label: "ATK%", max: 5 }, { label: "MATK%", max: 5 }] },
       { options: [{ label: "Melee Damage", max: 5 }, { label: "Magic Damage", max: 5 }] },
@@ -82,7 +87,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "rangedWeapon",
     label: "Ranged Weapon",
     icon: "🏹",
-    substats: 5,
+    maxSubstats: 6,
     rows: [
       { options: [{ label: "ATK%", max: 5 }, { label: "MATK%", max: 5 }] },
       { options: [{ label: "Ranged Damage", max: 5 }, { label: "Magic Damage", max: 5 }] },
@@ -109,7 +114,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "magicWeapon",
     label: "Magic Weapon",
     icon: "🪄",
-    substats: 5,
+    maxSubstats: 6,
     rows: [
       { options: [{ label: "ATK%", max: 5 }, { label: "MATK%", max: 5 }] },
       { options: [{ label: "Melee Damage", max: 5 }, { label: "Magic Damage", max: 5 }] },
@@ -135,7 +140,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "chest",
     label: "Chest Armor",
     icon: "🛡",
-    substats: 4,
+    maxSubstats: 5,
     rows: [
       { options: [{ label: "HP%", max: 10 }, { label: "MP%", max: 10 }] },
       { options: [{ label: "Flat DEF", max: 10 }, { label: "Flat MDEF", max: 10 }] },
@@ -153,7 +158,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "feet",
     label: "Feet",
     icon: "👟",
-    substats: 4,
+    maxSubstats: 5,
     rows: [
       { options: [{ label: "Attack Speed", max: 10 }] },
       { options: [{ label: "Move Speed", max: 10 }] },
@@ -165,7 +170,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "legs",
     label: "Legs",
     icon: "🩲",
-    substats: 4,
+    maxSubstats: 5,
     rows: [
       { options: [{ label: "HP Regen%", max: 25 }, { label: "MP Regen%", max: 25 }] },
       { options: [{ label: "Leech", max: 5 }, { label: "Cast Speed", max: 10 }] },
@@ -177,7 +182,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "artifact",
     label: "Artifact",
     icon: "💎",
-    substats: 3,
+    maxSubstats: 3,
     rows: [
       { options: [{ label: "HP%", max: 2 }, { label: "MP%", max: 2 }] },
       { options: [{ label: "ATK%", max: 2 }, { label: "MATK%", max: 2 }] },
@@ -187,7 +192,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "accessory",
     label: "Accessory",
     icon: "💍",
-    substats: 4,
+    maxSubstats: 5,
     rows: [
       { options: [{ label: "HP%", max: 2 }, { label: "MP%", max: 2 }] },
       { options: [{ label: "ATK%", max: 2 }, { label: "MATK%", max: 2 }] },
@@ -204,7 +209,7 @@ export const ESSENCE_POOLS: EssencePool[] = [
     key: "headgear",
     label: "Headgear",
     icon: "⛑",
-    substats: 4,
+    maxSubstats: 5,
     rows: [
       { options: [{ label: "HP%", max: 2 }, { label: "MP%", max: 2 }] },
       { options: [{ label: "ATK%", max: 2 }, { label: "MATK%", max: 2 }] },

@@ -67,7 +67,8 @@ const GEAR_PCT: { key: keyof GearMods; label: string }[] = [
   { key: "Reflectpct", label: "Reflect%" },
   { key: "Healingpct", label: "Healing%" },
   { key: "StatusDamagepct", label: "StatusDmg%" },
-  { key: "Leechpct", label: "Leech%" },
+  { key: "LeechHppct", label: "HP Leech%" },
+  { key: "LeechMppct", label: "MP Leech%" },
   { key: "Multistrikepct", label: "Multistrike%" },
 ];
 

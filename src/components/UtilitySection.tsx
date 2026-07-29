@@ -94,7 +94,8 @@ const SIPHON_FIELDS: GearField[] = [
 ];
 
 const LEECH_HEAL_FIELDS: GearField[] = [
-  { key: "Leechpct", label: "Leech%", hint: "% of damage dealt recovered as HP/MP over time", suffix: "%" },
+  { key: "LeechHppct", label: "HP Leech%", hint: "% of damage dealt recovered as HP per second", suffix: "%" },
+  { key: "LeechMppct", label: "MP Leech%", hint: "% of damage dealt recovered as MP per second (no in-game gear grants this yet)", suffix: "%" },
   { key: "Healingpct", label: "Healing% (skill)", hint: "Each healing skill carries its own %; enter the one you are testing", suffix: "%" },
 ];
 
@@ -200,13 +201,13 @@ export function UtilitySection({
           <UtilityTile
             label="Leech HP"
             value={`${fmt(ut.leechHp)}/s`}
-            sub={ut.isHpCapped ? `capped — raw ${fmt(ut.leechRaw)}/s` : `raw ${fmt(ut.leechRaw)}/s`}
+            sub={ut.isHpCapped ? `capped — raw ${fmt(ut.leechHpRaw)}/s` : `raw ${fmt(ut.leechHpRaw)}/s`}
             accent={accent}
           />
           <UtilityTile
             label="Leech MP"
             value={`${fmt(ut.leechMp)}/s`}
-            sub={ut.isMpCapped ? `capped — raw ${fmt(ut.leechRaw)}/s` : `raw ${fmt(ut.leechRaw)}/s`}
+            sub={ut.isMpCapped ? `capped — raw ${fmt(ut.leechMpRaw)}/s` : `raw ${fmt(ut.leechMpRaw)}/s`}
             accent={accent}
           />
         </div>
@@ -218,8 +219,9 @@ export function UtilitySection({
                 : ut.isHpCapped
                   ? "HP leech is capped at 20% of max HP."
                   : "MP leech is capped at 20% of max MP."}{" "}
-              Raw leech would be {fmt(ut.leechRaw)}/s — more Leech% here gives no extra recovery
-              until max HP/MP grows.
+              {ut.isHpCapped && `HP raw: ${fmt(ut.leechHpRaw)}/s. `}
+              {ut.isMpCapped && `MP raw: ${fmt(ut.leechMpRaw)}/s. `}
+              More Leech% here gives no extra recovery until max HP/MP grows.
             </p>
           </div>
         )}
@@ -246,8 +248,12 @@ export function UtilitySection({
           value={`SiphonMp × (LV + INT) / 50 = ${fmt(ut.siphonMpPerHit)}`}
         />
         <DetailRow
-          label="Leech"
-          value={`min(Leech% × dmg / 3, 20% of max) = ${fmt(ut.leechRaw)} raw`}
+          label="Leech HP"
+          value={`min(HP Leech% × dmg / 3, 20% of maxHP) = ${fmt(ut.leechHpRaw)} raw`}
+        />
+        <DetailRow
+          label="Leech MP"
+          value={`min(MP Leech% × dmg / 3, 20% of maxMP) = ${fmt(ut.leechMpRaw)} raw`}
         />
       </FormulaDetails>
 

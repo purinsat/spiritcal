@@ -1,5 +1,6 @@
 Formulas
-Melee Atk: (LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK * (1 + DEX/200)) * (1 + FLOOR(STR/10) / 100) * (1 + ATK%)
+Melee Atk: (LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK * (1 + STR/200)) * (1 + FLOOR(STR/10) / 100) * (1 + ATK%)
+# Confirmed Jul 2026: flat ATK scales by STR/200, not DEX/200 (corrected from earlier transcription).
 
 Ranged Atk: (LV/4 + DEX + STR/5 + LUK/5 + MASTERY + ATK * (1 + DEX/200)) * (1 +  FLOOR(DEX/10) / 100) * (1 + ATK%)
 
@@ -14,7 +15,8 @@ ASPD: 200 - 50 * BAD * (1 - (AGI/250 + DEX/1000)) / (1 + AtkSpd%) + 0.5*FLOOR(AG
 AttackDelay: (200 - ASPD) / 50
 
 Def: DEF * (1 + VIT/1000 + Def%)
-Mdef: MDEF * (1 + VIT/1000 + Mdef%)
+Mdef: MDEF * (1 + INT/1000 + Mdef%)
+# Confirmed Jul 2026: MDEF scales by INT/1000, not VIT/1000 (corrected from earlier transcription).
 
 DamageReduction: 100 / (DEF + 100)
 
@@ -151,7 +153,7 @@ Aegis: Immune to all damage
 ---
 ## Confirmed answers (Jul 2026)
 
-**Leech caps**: HP and MP leech pools are separate. Leech% * damage / 3, capped at 20% of max HP independently from 20% of max MP. Both caps apply per second.
+**Leech stats are separate pools (confirmed Jul 2026)**: HP Leech% and MP Leech% are two different gear stats, each computing its own raw value (Leech% * damage / 3) and capped independently at 20% of max HP/MP per second. MP Leech% does not yet appear on any in-game gear as of Jul 2026.
 
 **Magic damage reduction**: Uses the same curve as physical — 100 / (MDEF + 100). Already matched by app.
 

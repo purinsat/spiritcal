@@ -95,7 +95,8 @@ export interface GearMods {
   Reflectpct: number;
   Healingpct: number;
   StatusDamagepct: number;
-  Leechpct: number;
+  LeechHppct: number;
+  LeechMppct: number;
   Multistrikepct: number;
   AspdLimit: number;
 }
@@ -198,4 +199,29 @@ export interface DamageConfig {
     critApplies: boolean;
     multipliers: DamageMultiplier[];
   };
+}
+
+// ── Loadout types ─────────────────────────────────────────────────────────────
+
+/** One substat entry on a piece of gear. */
+export interface LoadoutSubstat {
+  id: string;
+  label: string;
+  value: number;
+}
+
+/** One equipment slot in a loadout set. */
+export interface LoadoutSlot {
+  /** The pool this slot draws options from. */
+  pool: import("@/data/essenceData").SlotKey;
+  /** Optional custom label for the specific piece, e.g. "Dragon Helm +7". */
+  name: string;
+  substats: LoadoutSubstat[];
+}
+
+/** A full named gear set. */
+export interface LoadoutSet {
+  id: string;
+  name: string;
+  slots: Record<import("@/data/loadoutData").GearSlotId, LoadoutSlot>;
 }
