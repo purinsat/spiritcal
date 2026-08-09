@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import type { Build } from "@/lib/types";
+import type { Build, SetCompareState } from "@/lib/types";
 import { makeDefaultBuild } from "@/data/gameData";
+import { aggregateNetDelta, applyDeltas } from "@/lib/setCompare";
 import {
   decodeBuild,
   loadPresets,
@@ -12,23 +13,25 @@ import { Calculator } from "@/components/Calculator";
 import { Compare } from "@/components/Compare";
 import { DamageTab } from "@/components/DamageTab";
 import { Loadout } from "@/components/Loadout";
-import { Planner } from "@/components/Planner";
+import { Presets } from "@/components/Presets";
 import { Reference } from "@/components/Reference";
 import Essence from "@/components/Essence";
+import { SetCompare, makeDefaultSetCompareState } from "@/components/SetCompare";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CreditFooter } from "@/components/CreditFooter";
 import { cn } from "@/components/ui";
 
-type Tab = "calculator" | "damage" | "loadout" | "compare" | "planner" | "essence" | "reference";
+type Tab = "calculator" | "setcompare" | "damage" | "presets" | "essence" | "reference" | "loadout" | "compare";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "calculator", label: "Calculator" },
-  { id: "damage", label: "Damage" },
-  { id: "loadout", label: "Loadout" },
-  { id: "compare", label: "Compare" },
-  { id: "planner", label: "Planner" },
-  { id: "essence", label: "Essence" },
-  { id: "reference", label: "Reference" },
+  { id: "calculator",  label: "Calculator" },
+  { id: "setcompare",  label: "Gear Compare" },
+  { id: "damage",      label: "Damage" },
+  { id: "presets",     label: "Presets" },
+  { id: "essence",     label: "Essence" },
+  { id: "reference",   label: "Reference" },
+  { id: "loadout",     label: "Loadout" },
+  { id: "compare",     label: "Build Compare" },
 ];
 
 export function App() {
@@ -36,6 +39,8 @@ export function App() {
   const [build, setBuild] = React.useState<Build>(() => makeDefaultBuild("My Build"));
   const [compareA, setCompareA] = React.useState<Build>(() => makeDefaultBuild("Build A"));
   const [compareB, setCompareB] = React.useState<Build>(() => makeDefaultBuild("Build B"));
+  const [setCompareState, setSetCompareState] = React.useState<SetCompareState>(makeDefaultSetCompareState);
+  const [applySwapsToDamage, setApplySwapsToDamage] = React.useState(true);
   const [presets, setPresets] = React.useState<Build[]>([]);
   const [hydrated, setHydrated] = React.useState(false);
 
@@ -66,13 +71,19 @@ export function App() {
   const savePreset = (b: Build) => {
     const copy: Build = { ...structuredClone(b), id: crypto.randomUUID() };
     setPresets((prev) => [...prev, copy]);
-    setTab("planner");
+    setTab("presets");
   };
 
   const loadToCalc = (b: Build) => {
     setBuild(b);
     setTab("calculator");
   };
+
+  const activeCount = setCompareState.cards.filter((c) => c.enabled).length;
+  const damageBuild = React.useMemo(() => {
+    if (!applySwapsToDamage || activeCount === 0) return build;
+    return applyDeltas(build, aggregateNetDelta(setCompareState.cards));
+  }, [build, setCompareState, applySwapsToDamage, activeCount]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -116,11 +127,25 @@ export function App() {
         {tab === "calculator" && (
           <Calculator build={build} setBuild={setBuild} onSavePreset={savePreset} />
         )}
+        {tab === "setcompare" && (
+          <SetCompare
+            build={build}
+            state={setCompareState}
+            onChange={setSetCompareState}
+          />
+        )}
         {tab === "damage" && (
           <DamageTab
             build={build}
+            computeBuild={damageBuild}
             onChange={setBuild}
             onEditInCalculator={() => setTab("calculator")}
+            swapInfo={{
+              activeCount,
+              applied: applySwapsToDamage,
+              onToggle: setApplySwapsToDamage,
+              onOpenSetCompare: () => setTab("setcompare"),
+            }}
           />
         )}
         {tab === "loadout" && <Loadout />}
@@ -133,8 +158,8 @@ export function App() {
             presets={presets}
           />
         )}
-        {tab === "planner" && (
-          <Planner
+        {tab === "presets" && (
+          <Presets
             presets={presets}
             setPresets={setPresets}
             onLoadToCalc={loadToCalc}

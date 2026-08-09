@@ -20,57 +20,20 @@ import type {
 import { Card, NumberInput, Select, Toggle, cn } from "@/components/ui";
 import { ElementDot } from "@/components/ElementBadge";
 import { StanceBadge } from "@/components/StanceBadge";
+import { STAT_FIELDS } from "@/data/statFields";
 
-const ATTR_FIELDS: { key: keyof Attributes; label: string }[] = [
-  { key: "STR", label: "STR" },
-  { key: "AGI", label: "AGI" },
-  { key: "VIT", label: "VIT" },
-  { key: "INT", label: "INT" },
-  { key: "DEX", label: "DEX" },
-  { key: "LUK", label: "LUK" },
-];
-
-const GEAR_FLAT: { key: keyof GearMods; label: string }[] = [
-  { key: "ATK", label: "ATK" },
-  { key: "MASTERY", label: "Mastery" },
-  { key: "DEF", label: "Flat DEF" },
-  { key: "MDEF", label: "Flat MDEF" },
-  { key: "HIT", label: "Hit" },
-  { key: "FLEE", label: "Flee" },
-  { key: "CRIT", label: "Crit" },
-  { key: "PerfectDodge", label: "Perf. Dodge" },
-  { key: "CritDef", label: "Crit DEF" },
-  { key: "HP", label: "Flat HP" },
-  { key: "MP", label: "Flat MP" },
-  { key: "FlatRegen", label: "Flat Regen" },
-  { key: "SiphonHp", label: "Siphon HP" },
-  { key: "SiphonMp", label: "Siphon MP" },
-  { key: "AspdLimit", label: "ASPD Limit" },
-];
-
-const GEAR_PCT: { key: keyof GearMods; label: string }[] = [
-  { key: "ATKpct", label: "ATK%" },
-  { key: "MATKpct", label: "MATK%" },
-  { key: "DEFpct", label: "Def%" },
-  { key: "MDEFpct", label: "Mdef%" },
-  { key: "Critpct", label: "Crit%" },
-  { key: "CritDamagepct", label: "CritDmg%" },
-  { key: "Hitpct", label: "Hit%" },
-  { key: "Fleepct", label: "Flee%" },
-  { key: "AtkSpdpct", label: "AtkSpd%" },
-  { key: "CastSpdpct", label: "CastSpd%" },
-  { key: "Hppct", label: "HP%" },
-  { key: "Mppct", label: "MP%" },
-  { key: "Regenpct", label: "Regen%" },
-  { key: "MaxHPRegenpct", label: "MaxHPRegen%" },
-  { key: "MaxMPRegenpct", label: "MaxMPRegen%" },
-  { key: "Reflectpct", label: "Reflect%" },
-  { key: "Healingpct", label: "Healing%" },
-  { key: "StatusDamagepct", label: "StatusDmg%" },
-  { key: "LeechHppct", label: "HP Leech%" },
-  { key: "LeechMppct", label: "MP Leech%" },
-  { key: "Multistrikepct", label: "Multistrike%" },
-];
+const ATTR_FIELDS = STAT_FIELDS.filter((f) => f.group === "Attributes") as {
+  key: keyof Attributes;
+  label: string;
+}[];
+const GEAR_FLAT = STAT_FIELDS.filter((f) => f.group === "Flat") as {
+  key: keyof GearMods;
+  label: string;
+}[];
+const GEAR_PCT = STAT_FIELDS.filter((f) => f.group === "Percent") as {
+  key: keyof GearMods;
+  label: string;
+}[];
 
 const weaponOptions = [
   ...WEAPON_KEYS.map((k) => ({ value: k, label: WEAPONS[k].label })),

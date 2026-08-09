@@ -118,10 +118,14 @@ function SharedBanner({
   build,
   dm,
   onEditInCalculator,
+  swapsApplied = false,
+  swapCount = 0,
 }: {
   build: Build;
   dm: Breakdown;
   onEditInCalculator: () => void;
+  swapsApplied?: boolean;
+  swapCount?: number;
 }) {
   const weaponType = WEAPONS[build.weapon]?.type ?? "melee";
   const atkLabel =
@@ -139,7 +143,9 @@ function SharedBanner({
     <div className="mb-4 rounded-[--radius-card] border border-border bg-surface-2/60 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted">
-          Shared Stats (from Calculator)
+          {swapsApplied
+            ? `Shared Stats (Calculator + ${swapCount} gear swap${swapCount === 1 ? "" : "s"})`
+            : "Shared Stats (from Calculator)"}
         </h3>
         <Button variant="outline" size="sm" onClick={onEditInCalculator}>
           Edit in Calculator ↗
@@ -1123,14 +1129,24 @@ const DAMAGE_INITIAL_OPEN: Record<DamageSectionKey, boolean> = {
 
 export function DamageTab({
   build,
+  computeBuild,
   onChange,
   onEditInCalculator,
+  swapInfo,
 }: {
   build: Build;
+  /** Baseline + active swap deltas. Compute-only — never passed to onChange. */
+  computeBuild: Build;
   onChange: (b: Build) => void;
   onEditInCalculator: () => void;
+  swapInfo: {
+    activeCount: number;
+    applied: boolean;
+    onToggle: (v: boolean) => void;
+    onOpenSetCompare: () => void;
+  };
 }) {
-  const dm = React.useMemo(() => computeDamageBreakdown(build), [build]);
+  const dm = React.useMemo(() => computeDamageBreakdown(computeBuild), [computeBuild]);
   const d = build.damage;
 
   const [openSections, setOpenSections] = React.useState<Record<DamageSectionKey, boolean>>(
@@ -1156,7 +1172,37 @@ export function DamageTab({
 
   return (
     <div className="space-y-4">
-      <SharedBanner build={build} dm={dm} onEditInCalculator={onEditInCalculator} />
+      {swapInfo.activeCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-primary">
+              {swapInfo.applied
+                ? `${swapInfo.activeCount} gear swap${swapInfo.activeCount === 1 ? "" : "s"} applied`
+                : `${swapInfo.activeCount} gear swap${swapInfo.activeCount === 1 ? "" : "s"} available (off)`}
+            </p>
+            <p className="text-xs text-muted">
+              Inputs still edit your base build. Swaps only affect computed numbers above.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <Toggle
+              checked={swapInfo.applied}
+              onChange={swapInfo.onToggle}
+              label={swapInfo.applied ? "On" : "Off"}
+            />
+            <Button variant="outline" size="sm" onClick={swapInfo.onOpenSetCompare}>
+              Edit swaps ↗
+            </Button>
+          </div>
+        </div>
+      )}
+      <SharedBanner
+        build={build}
+        dm={dm}
+        onEditInCalculator={onEditInCalculator}
+        swapsApplied={swapInfo.applied && swapInfo.activeCount > 0}
+        swapCount={swapInfo.activeCount}
+      />
       <DurationControl build={build} onChange={onChange} />
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" onClick={toggleAll}>

@@ -9,11 +9,14 @@
 
 1. **First substat is always a base attribute** — one of STR / AGI / VIT / INT / DEX / LUK — rolling **+2 to +3** (confirmed range; same for every slot).
 2. **Remaining substats each come from a different row** in that slot's pool. Exactly one option is chosen per row, and an item never repeats a category.
-3. **Maximum substat counts:**
+3. **Maximum substat counts (normal, without Chaos):**
    - Weapons → **5** (base stat + all 4 rows)
    - Most gear → **4** (base stat + 3 of the slot's rows)
    - Artifacts → **3** (base stat + both rows)
    - Chest armor has 5 rows to choose **3** from, so no single chest piece ever carries all five modifiers.
+   - **Essence of Chaos** can push weapons to **6** and armor/accessories to **5** by adding one extra
+     substat that may duplicate a row. This is the only way to reach those numbers.
+     The Loadout editor caps at the Chaos-extended ceiling (6/5/3) to allow manual entry of Chaos-boosted items.
 4. **Negative values are reductions and are beneficial** (MP Cost –10, Damage From Melee –5, etc.).
 
 ---

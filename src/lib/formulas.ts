@@ -442,9 +442,13 @@ export function computeUtility(build: Build): UtilityResult {
   };
 }
 
-/** Multiplicative product of all enabled multipliers. */
+/** Multiplicative product of all enabled multipliers.
+ *  Each entry's factor is floored at zero so values below -100% cannot
+ *  produce negative damage. */
 function multProduct(multipliers: DamageMultiplier[]): number {
-  return multipliers.filter((m) => m.enabled).reduce((a, m) => a * (1 + m.pct / 100), 1);
+  return multipliers
+    .filter((m) => m.enabled)
+    .reduce((a, m) => a * Math.max(0, 1 + m.pct / 100), 1);
 }
 
 /** One skill's rotation contribution. */
@@ -929,3 +933,16 @@ export const STAT_GROUP_LABEL: Record<StatResult["group"], string> = {
   resources: "Resources",
   utility: "Utility",
 };
+
+/**
+ * Stat keys where a *lower* computed value is the better outcome.
+ * Used by Compare and SetCompare to colour direction arrows correctly.
+ */
+export const LOWER_IS_BETTER_STATS = new Set([
+  "attackDelay",
+  "dmgReduction",
+  "mdmgReduction",
+  "castTime",
+  "skillDelay",
+  "actualCastTime",
+]);

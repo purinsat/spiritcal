@@ -201,6 +201,32 @@ export interface DamageConfig {
   };
 }
 
+// ── Set Compare types ─────────────────────────────────────────────────────────
+
+/** One stat change row in the Set Compare editor. */
+export interface StatDelta {
+  id: string;
+  /** key from STAT_FIELDS (keyof Attributes | keyof GearMods) */
+  key: string;
+  value: number;
+}
+
+/** One gear swap card in the Set Compare tab. */
+export interface GearSwapCard {
+  id: string;
+  /** Free text label, e.g. "Helmet: Iron → Dragon". */
+  name: string;
+  /** When false, this card is excluded from the combined result. */
+  enabled: boolean;
+  removing: StatDelta[];
+  adding: StatDelta[];
+}
+
+/** State for the Set Compare tab — session only, not persisted. */
+export interface SetCompareState {
+  cards: GearSwapCard[];
+}
+
 // ── Loadout types ─────────────────────────────────────────────────────────────
 
 /** One substat entry on a piece of gear. */

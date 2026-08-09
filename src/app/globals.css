@@ -35,6 +35,12 @@
   /* Essence tab — two extra Earthtone slots for nine distinct pool colours */
   --sec-essence-a: #7d5c3a;
   --sec-essence-b: #4a6b5a;
+  /* Potential system — one token per essence type, muted Earthtone */
+  --ess-rebirth: #c07a28;
+  --ess-flow: #2e82b0;
+  --ess-destruction: #b04040;
+  --ess-growth: #3a8c60;
+  --ess-chaos: #8050b0;
 
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
@@ -68,6 +74,11 @@
   --sec-utility: #c49670;
   --sec-essence-a: #c49670;
   --sec-essence-b: #7aaa90;
+  --ess-rebirth: #e8a040;
+  --ess-flow: #5cb8e8;
+  --ess-destruction: #e07070;
+  --ess-growth: #5ac490;
+  --ess-chaos: #b880e0;
 }
 
 /* Element accent colors (shared across themes). */
@@ -111,6 +122,11 @@
   --color-sec-utility: var(--sec-utility);
   --color-sec-essence-a: var(--sec-essence-a);
   --color-sec-essence-b: var(--sec-essence-b);
+  --color-ess-rebirth: var(--ess-rebirth);
+  --color-ess-flow: var(--ess-flow);
+  --color-ess-destruction: var(--ess-destruction);
+  --color-ess-growth: var(--ess-growth);
+  --color-ess-chaos: var(--ess-chaos);
 
   --color-el-neutral: var(--el-neutral);
   --color-el-poison: var(--el-poison);

@@ -2,22 +2,10 @@
 
 import * as React from "react";
 import type { Build, StatResult } from "@/lib/types";
-import { computeStats, STAT_GROUP_LABEL, STAT_GROUP_ORDER } from "@/lib/formulas";
+import { computeStats, STAT_GROUP_LABEL, STAT_GROUP_ORDER, LOWER_IS_BETTER_STATS } from "@/lib/formulas";
 import { BuildForm } from "@/components/BuildForm";
 import { StanceBadge } from "@/components/StanceBadge";
 import { Button, Card, Select, cn } from "@/components/ui";
-
-// Stats where a lower value is the better outcome.
-const LOWER_BETTER = new Set([
-  "attackDelay",
-  "dmgReduction",
-  "mdmgReduction",
-  "castTime",
-  "skillDelay",
-  "actualCastTime",
-]);
-// Stats with no clear "better" direction.
-const NEUTRAL = new Set<string>();
 
 function useMerged(a: Build, b: Build) {
   return React.useMemo(() => {
@@ -55,9 +43,9 @@ function DeltaCell({
 }) {
   if (!a || !b) return <span className="text-muted">—</span>;
   const diff = b.value - a.value;
-  if (Math.abs(diff) < 1e-6 || NEUTRAL.has(keyName))
+  if (Math.abs(diff) < 1e-6)
     return <span className="text-muted">0</span>;
-  const better = LOWER_BETTER.has(keyName) ? diff < 0 : diff > 0;
+  const better = LOWER_IS_BETTER_STATS.has(keyName) ? diff < 0 : diff > 0;
   return (
     <span
       className={cn(

@@ -249,7 +249,7 @@ export function exportLoadoutsToFile(sets: LoadoutSet[]): void {
 
 /**
  * Parse a loadout JSON file string into a list of sets.
- * Accepts the wrapper payload OR a bare array for hand-edited files.
+ * Accepts the wrapper payload, a backup payload (pulls only loadouts), or a bare array.
  * Throws if the content cannot be parsed as a valid loadout list.
  */
 export function parseLoadoutsFile(text: string): LoadoutSet[] {
@@ -258,14 +258,16 @@ export function parseLoadoutsFile(text: string): LoadoutSet[] {
   let rawSets: unknown[];
   if (Array.isArray(parsed)) {
     rawSets = parsed;
-  } else if (
-    parsed !== null &&
-    typeof parsed === "object" &&
-    "kind" in parsed &&
-    (parsed as Record<string, unknown>).kind === "loadouts" &&
-    Array.isArray((parsed as Record<string, unknown>).sets)
-  ) {
-    rawSets = (parsed as LoadoutsFilePayload).sets;
+  } else if (parsed !== null && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    if (obj.kind === "backup" && Array.isArray(obj.loadouts)) {
+      // Accept a full backup file — pull only the loadouts section.
+      rawSets = obj.loadouts as unknown[];
+    } else if (obj.kind === "loadouts" && Array.isArray(obj.sets)) {
+      rawSets = (parsed as LoadoutsFilePayload).sets;
+    } else {
+      throw new Error("Not a SpiritCal loadout file");
+    }
   } else {
     throw new Error("Not a SpiritCal loadout file");
   }
@@ -274,4 +276,103 @@ export function parseLoadoutsFile(text: string): LoadoutSet[] {
 
   // Normalize every set (fills missing slots + fields for forward compat).
   return rawSets.map((s) => normalizeLoadoutSet(s as LoadoutSet));
+}
+
+// ── Backup file (presets + loadouts in one) ───────────────────────────────────
+
+interface BackupFilePayload {
+  app: "spiritcal";
+  kind: "backup";
+  version: 1;
+  exportedAt: string;
+  presets: Build[];
+  loadouts: LoadoutSet[];
+}
+
+/** Download a single JSON file containing all build presets plus all gear loadouts. */
+export function exportBackupToFile(presets: Build[]): void {
+  if (typeof window === "undefined") return;
+  const loadouts = loadLoadouts();
+  const payload: BackupFilePayload = {
+    app: "spiritcal",
+    kind: "backup",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    presets,
+    loadouts,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0, 10);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spiritcal-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Parse any SpiritCal JSON file into { presets, loadouts }.
+ * Accepts: backup payload, loadouts payload, bare Build[], bare LoadoutSet[],
+ * a single Build object. Always returns both arrays (may be empty).
+ * Throws on unrecognizable content.
+ */
+export function parseBackupFile(text: string): { presets: Build[]; loadouts: LoadoutSet[] } {
+  const parsed: unknown = JSON.parse(text);
+
+  // Wrapper payloads
+  if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>;
+
+    if (obj.kind === "backup") {
+      const rawPresets = Array.isArray(obj.presets) ? obj.presets : [];
+      const rawLoadouts = Array.isArray(obj.loadouts) ? obj.loadouts : [];
+      return {
+        presets: rawPresets.map((b) => normalizeBuild(b as Partial<Build>)),
+        loadouts: rawLoadouts.map((s) => normalizeLoadoutSet(s as LoadoutSet)),
+      };
+    }
+
+    if (obj.kind === "loadouts" && Array.isArray(obj.sets)) {
+      return {
+        presets: [],
+        loadouts: (obj.sets as unknown[]).map((s) => normalizeLoadoutSet(s as LoadoutSet)),
+      };
+    }
+
+    // Single build object
+    if ("attrs" in obj) {
+      return { presets: [normalizeBuild(obj as Partial<Build>)], loadouts: [] };
+    }
+
+    throw new Error("Not a SpiritCal file");
+  }
+
+  // Bare array — probe the first element to tell builds from loadouts apart.
+  if (Array.isArray(parsed)) {
+    if (parsed.length === 0) throw new Error("File is empty");
+    const first = parsed[0] as Record<string, unknown>;
+    if ("slots" in first) {
+      return {
+        presets: [],
+        loadouts: parsed.map((s) => normalizeLoadoutSet(s as LoadoutSet)),
+      };
+    }
+    if ("attrs" in first) {
+      return {
+        presets: parsed.map((b) => normalizeBuild(b as Partial<Build>)),
+        loadouts: [],
+      };
+    }
+    throw new Error("Not a SpiritCal file");
+  }
+
+  throw new Error("Not a SpiritCal file");
+}
+
+/** Append imported sets to localStorage gear loadouts (additive — never overwrites). */
+export function appendLoadouts(sets: LoadoutSet[]): void {
+  const current = loadLoadouts();
+  const withNewIds = sets.map((s) => ({ ...structuredClone(s), id: crypto.randomUUID() }));
+  saveLoadouts([...current, ...withNewIds]);
 }

@@ -4,11 +4,16 @@ import * as React from "react";
 import type { DamageMultiplier } from "@/lib/types";
 import { Button, NumberInput, TextInput, Toggle, cn } from "@/components/ui";
 
-/** Computes the combined multiplicative product of all enabled multipliers. */
+/** Per-entry multiplier factor, floored at 0 so values below -100% cannot
+ *  produce negative damage. */
+function entryFactor(pct: number): number {
+  return Math.max(0, 1 + pct / 100);
+}
+
+/** Computes the combined multiplicative product of all enabled multipliers.
+ *  Each entry's factor is floored at zero. */
 export function multiplierProduct(multipliers: DamageMultiplier[]): number {
-  return multipliers
-    .filter((m) => m.enabled)
-    .reduce((acc, m) => acc * (1 + m.pct / 100), 1);
+  return multipliers.filter((m) => m.enabled).reduce((acc, m) => acc * entryFactor(m.pct), 1);
 }
 
 function MultiplierRow({
@@ -20,6 +25,10 @@ function MultiplierRow({
   onChange: (updated: DamageMultiplier) => void;
   onRemove: () => void;
 }) {
+  const factor = entryFactor(m.pct);
+  const isZero = factor === 0;
+  const isPenalty = m.pct < 0;
+
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-2/60 px-3 py-2">
       <Toggle
@@ -44,6 +53,32 @@ function MultiplierRow({
           compact
         />
       </div>
+      {/* Per-entry factor readout */}
+      <div className="w-14 shrink-0 text-right">
+        {isZero ? (
+          <span className="text-xs font-semibold text-bad" title="Damage from this source is reduced to zero">
+            ×0
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              isPenalty ? "text-bad" : "text-good",
+            )}
+          >
+            ×{factor.toFixed(2)}
+          </span>
+        )}
+      </div>
+      {/* Sign flip button */}
+      <button
+        type="button"
+        onClick={() => onChange({ ...m, pct: -m.pct })}
+        title="Flip between bonus and penalty"
+        className="shrink-0 rounded px-1.5 py-1 text-xs font-bold text-muted transition hover:bg-surface-3 hover:text-foreground"
+      >
+        +/−
+      </button>
       <button
         type="button"
         onClick={onRemove}
@@ -119,12 +154,12 @@ export function MultiplierList({
         + Add multiplier
       </Button>
 
-      {multipliers.length === 0 && (
-        <p className="text-[11px] text-muted">
-          No multipliers added. Each entry is its own bracket — they combine multiplicatively
-          (e.g. +20% and +30% → ×1.56, not ×1.50).
-        </p>
-      )}
+      {/* Persistent one-line hint */}
+      <p className="text-[11px] text-muted">
+        {multipliers.length === 0
+          ? "Each entry is its own bracket — they combine multiplicatively (e.g. +20% and +30% → ×1.56). Use a negative value for a penalty (e.g. −30% → ×0.70)."
+          : "Tip: use a negative % for a penalty (e.g. −30% → ×0.70). Values below −100% are treated as ×0."}
+      </p>
     </div>
   );
 }
