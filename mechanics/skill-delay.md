@@ -10,73 +10,64 @@ The in-game character stat window lists **Skill delay** and describes it as
 *"the time between skill casts"* — the exact counterpart to attack delay being the time between
 autoattacks. Players commonly see values around `0.3s`.
 
-The dev's `formulas.md` never names this stat. It is not a separate mechanic though: it is the
-Cast Speed side of the same encoding the dev used twice.
-
-```
-AttackDelay = (200 - ASPD)      / 50   (seconds between autoattacks)
-SkillDelay  = (200 - CastSpeed) / 50   (seconds between skill casts)
-```
-
 ---
 
-## Why the same number is both seconds and a multiplier
+## Which stat drives it
 
-`(200 - CastSpeed) / 50` is simultaneously the skill delay in seconds **and** the multiplier applied
-to a skill's listed cast time (the basis of CTR). This looks like a bug and is not. Both speed
-formulas share the shape `Speed = 200 - 50 × K + decileBonus`, so `(200 - Speed) / 50` recovers `K`.
-The difference is what supplies `K`'s unit:
+**Skill delay tracks ASPD, not Cast Speed.**
 
-- **ASPD** multiplies by `BAD`, the weapon's Base Attack Delay, which is already in seconds
-  (Dagger 1.0, Bow 1.4, Shotgun 2.0). So the result is an absolute duration tied to your weapon.
-- **CastSpeed** has a bare `1` where `BAD` would be, and nothing in the formula knows which skill
-  you are casting. Its reference skill is therefore exactly 1 second, which makes the result
-  readable both as seconds of delay and as the fraction of any skill's listed cast time you pay.
+The earlier model assumed skill delay was `(200 - CastSpeed) / 50` (the same number as the cast
+time multiplier). That turned out to be wrong. The dev has not published the formula, so the app
+now takes skill delay as a **manual input** read directly from the in-game stat window rather than
+deriving it from a formula.
 
-Sanity checks at the baseline (all zero stats, no gear):
+Cast Speed only drives **Cast Time Reduction (CTR)** — how long each skill takes to cast:
 
-- ASPD `150` with a 1.0 BAD weapon gives `1.00s` per swing.
-- CastSpeed `150` gives `1.00`, i.e. 0% CTR — you pay a skill's full listed cast time.
+```
+castTime multiplier = (200 - CastSpeed) / 50    →  drives CTR
+CTR = ROUND((1 - castTime) × 100)               →  e.g. 70% at CastSpeed 185
+```
 
-At CastSpeed `185` both come out at `0.30`: a 0.30s gap between casts, and 70% CTR.
-
-`CTR = ROUND((1 - K) × 100)`. Note the grouping — `ROUND(1 - K × 100)` would give -99% at the
-baseline, so the dev's line is parsed as `(1 - K) × 100`.
+The cast time multiplier and skill delay are **separate numbers** that happen to read similarly at
+typical stats. Do not conflate them.
 
 ---
 
 ## How it is modeled
 
-`computeSpeed()` exposes it as a named field rather than making callers read a multiplier as a
-duration:
+`computeSpeed()` reads `build.skillDelaySec` (default 0.3) and exposes:
 
 ```
-skillDelaySec  = max(0, (200 - CastSpeed) / 50)
-maxCastsPerSec = 1 / skillDelaySec
+skillDelaySec  = build.skillDelaySec           (manual input)
+maxCastsPerSec = 1 / skillDelaySec             (global ceiling)
 ```
 
-The delay is a **global** gate, not a per-skill charge. In `computeDamageBreakdown()` two separate
-limits apply to the rotation and the tighter one wins:
+---
 
-1. **Timeline** — you cannot spend more than 100% of your time casting (`isCastBound`).
-2. **Skill delay** — every skill combined cannot exceed `1 / skillDelaySec` casts per second
-   (`isDelayBound`).
+## How the rotation cycle works
+
+Per skill, the repeat interval is:
 
 ```
-cycle_i        = max(actualCast_i + cooldown_i, skillDelaySec)
-desiredRate    = sum(1 / cycle_i)
-castScale      = totalCastFraction > 1        ? 1 / totalCastFraction        : 1
-delayScale     = desiredRate > maxCastsPerSec ? maxCastsPerSec / desiredRate : 1
-castsPerSec_i  = (1 / cycle_i) × min(castScale, delayScale)
-aaUptime       = 1 - sum(castsPerSec_i × actualCast_i)
+cycleSec = actualCastTime + skillDelaySec + max(0, cooldownSec)
 ```
 
-The delay also floors each individual skill's cycle, since consecutive casts of the *same* skill are
-still skill casts. That floor is what keeps an instant, no-cooldown skill finite — it resolves to
-`1 / skillDelaySec` casts/sec instead of dividing by zero and silently reporting 0 DPS.
+All three terms are **additive** — cast the skill, then wait out the delay, then wait any remaining
+cooldown. A zero guard (`cycleSec > 0 ? 1 / cycleSec : 0`) prevents division by zero when all
+three are 0.
 
-Nothing about the delay is persisted. It is derived from the build, so it responds to DEX, INT, and
-CastSpd% exactly as the game does, and old presets and share links need no migration.
+The delay is also a **global** gate: `desiredCastsPerSec` summed across all skills is capped at
+`maxCastsPerSec`, keeping `isDelayBound` meaningful when several skills compete.
+
+---
+
+## Historical note
+
+The app previously derived skill delay as `(200 - CastSpeed) / 50` under the assumption that the
+two CastSpeed readings (cast time multiplier and skill delay in seconds) were the same number. This
+is documented in the original `skill-delay.md`. That analysis was correct for the cast time
+multiplier but wrong for skill delay, which depends on ASPD. The old explainer text in
+`SpeedSection` and `DamageTab` has been rewritten to reflect this correction.
 
 ---
 
@@ -84,8 +75,7 @@ CastSpd% exactly as the game does, and old presets and share links need no migra
 
 **The delay gates skills only.** Autoattacks and autocast procs are assumed to continue during it,
 so only the actual casting animation (`castsPerSec × actualCast`) is subtracted from autoattack
-uptime. This follows the in-game wording, which talks about the time between *skill casts* and says
-nothing about attacking.
+uptime. This follows the in-game wording, which talks about the time between *skill casts*.
 
 If it turns out the delay freezes autoattacks too, the fix is to subtract the full delay window from
 `aaUptime` in `computeDamageBreakdown()` instead of just the cast time.

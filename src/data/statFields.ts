@@ -26,8 +26,10 @@ export const STAT_FIELDS: StatField[] = [
   { key: "LUK",       label: "LUK",           target: "attr", pct: false, group: "Attributes" },
 
   // ── Gear — flat ───────────────────────────────────────────────────────────
-  { key: "ATK",         label: "ATK",         target: "gear", pct: false, group: "Flat" },
-  { key: "MASTERY",     label: "Mastery",     target: "gear", pct: false, group: "Flat" },
+  { key: "ATK",         label: "ATK (non-weapon)", target: "gear", pct: false, group: "Flat" },
+  { key: "WeaponATK",   label: "Main Weapon ATK",  target: "gear", pct: false, group: "Flat" },
+  { key: "OffhandATK",  label: "Offhand ATK",      target: "gear", pct: false, group: "Flat" },
+  { key: "MASTERY",     label: "Mastery",          target: "gear", pct: false, group: "Flat" },
   { key: "DEF",         label: "Flat DEF",    target: "gear", pct: false, group: "Flat" },
   { key: "MDEF",        label: "Flat MDEF",   target: "gear", pct: false, group: "Flat" },
   { key: "HIT",         label: "Hit",         target: "gear", pct: false, group: "Flat" },

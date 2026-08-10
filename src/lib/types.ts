@@ -60,7 +60,12 @@ export interface Attributes {
 // Percent values are stored as whole numbers (10 = 10%).
 export interface GearMods {
   // flat
+  /** Flat ATK from non-weapon sources (armor, accessories, buffs, etc.). */
   ATK: number;
+  /** Flat ATK from the main-hand weapon. Added on top of ATK in the attack formula. */
+  WeaponATK: number;
+  /** Flat ATK from the off-hand weapon (dual wield only). */
+  OffhandATK: number;
   MASTERY: number;
   DEF: number;
   MDEF: number;
@@ -121,6 +126,9 @@ export interface Build {
   target: Target;
   /** Base cast time (in seconds) of the skill being tested. Persisted with presets. */
   skillCastTime: number;
+  /** Skill delay in seconds, read directly from the in-game stat window.
+   *  The dev has not published the formula; default 0.3 (most common value seen in-game). */
+  skillDelaySec: number;
   /** Duration (seconds) used for the Damage Output total calculation. Default 10. */
   durationSec: number;
   /** Damage Output tab configuration. */

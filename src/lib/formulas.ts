@@ -30,7 +30,14 @@ export interface Computed {
   meleeAtk: number;
   rangedAtk: number;
   matk: number;
+  /** The effective attack used in damage formulas.
+   *  Single-weapon builds: the primary attack type.
+   *  Dual wield: sum of main-hand total + off-hand total (each using its own weapon's type). */
   attackByType: number;
+  /** Main-hand attack total (always populated). */
+  mainAtk: number;
+  /** Off-hand attack total (0 for non-dual-wield builds). */
+  offAtk: number;
   stanceMult: number;
   def: number;
   mdef: number;
@@ -40,6 +47,43 @@ export interface Computed {
   critDamage: number;
   hp: number;
   mp: number;
+}
+
+/** Helper: run the full attack formula for one weapon's flat-ATK contribution and type.
+ *  `flatAtk` = non-weapon ATK + this weapon's own ATK. Mastery is always shared. */
+function attackForWeapon(
+  type: import("@/lib/types").AttackType,
+  flatAtk: number,
+  attrs: Build["attrs"],
+  mastery: number,
+  atkPct: number,
+  matkPct: number,
+  stanceMult: number,
+): number {
+  const { LV, STR, DEX, INT, LUK } = attrs;
+  if (type === "magic") {
+    return (
+      (LV / 4 + INT * 1.5 + DEX / 5 + mastery + flatAtk * (1 + INT / 200)) *
+      (1 + FLOOR(INT / 10) / 100) *
+      (1 + matkPct) *
+      stanceMult
+    );
+  }
+  if (type === "ranged") {
+    return (
+      (LV / 4 + DEX + STR / 5 + LUK / 5 + mastery + flatAtk * (1 + DEX / 200)) *
+      (1 + FLOOR(DEX / 10) / 100) *
+      (1 + atkPct) *
+      stanceMult
+    );
+  }
+  // melee
+  return (
+    (LV / 4 + STR * 1.5 + DEX / 5 + LUK / 5 + mastery + flatAtk * (1 + STR / 200)) *
+    (1 + FLOOR(STR / 10) / 100) *
+    (1 + atkPct) *
+    stanceMult
+  );
 }
 
 /** Core numbers reused by several stats. */
@@ -54,27 +98,32 @@ export function computeCore(build: Build): Computed {
   // per formulas.md: "Unique multipliers are applied at the end").
   const stanceMult = getStance(build).mult;
 
-  const meleeAtk =
-    (LV / 4 + STR * 1.5 + DEX / 5 + LUK / 5 + g.MASTERY + g.ATK * (1 + STR / 200)) *
-    (1 + FLOOR(STR / 10) / 100) *
-    (1 + atkPct) *
-    stanceMult;
+  // Single-weapon totals use all ATK sources (non-weapon + weapon ATK).
+  const meleeAtk = attackForWeapon("melee", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  const rangedAtk = attackForWeapon("ranged", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  const matk = attackForWeapon("magic", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
 
-  const rangedAtk =
-    (LV / 4 + DEX + STR / 5 + LUK / 5 + g.MASTERY + g.ATK * (1 + DEX / 200)) *
-    (1 + FLOOR(DEX / 10) / 100) *
-    (1 + atkPct) *
-    stanceMult;
+  const isDual = build.offhand !== "none" && build.offhand !== "shield";
+  const mainType = WEAPONS[build.weapon].type;
 
-  const matk =
-    (LV / 4 + INT * 1.5 + DEX / 5 + g.MASTERY + g.ATK * (1 + INT / 200)) *
-    (1 + FLOOR(INT / 10) / 100) *
-    (1 + matkPct) *
-    stanceMult;
+  // Main-hand total always uses the main weapon's type.
+  const mainAtk = attackForWeapon(mainType, g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
 
-  const type = WEAPONS[build.weapon].type;
-  const attackByType =
-    type === "magic" ? matk : type === "ranged" ? rangedAtk : meleeAtk;
+  // Off-hand total uses its own weapon type and its own weapon ATK.
+  const offAtk = isDual
+    ? attackForWeapon(
+        WEAPONS[build.offhand as import("@/lib/types").WeaponKey].type,
+        g.ATK + g.OffhandATK,
+        build.attrs,
+        g.MASTERY,
+        atkPct,
+        matkPct,
+        stanceMult,
+      )
+    : 0;
+
+  // Dual wield effective ATK = sum of both weapon totals.
+  const attackByType = isDual ? mainAtk + offAtk : mainAtk;
 
   const def = g.DEF * (1 + VIT / 1000 + g.DEFpct / 100);
   const mdef = g.MDEF * (1 + INT / 1000 + g.MDEFpct / 100);
@@ -99,6 +148,8 @@ export function computeCore(build: Build): Computed {
     rangedAtk,
     matk,
     attackByType,
+    mainAtk,
+    offAtk,
     stanceMult,
     def,
     mdef,
@@ -120,6 +171,9 @@ function fmt(n: number, digits = 0): string {
 }
 
 export interface AttackBreakdown {
+  /** Stable unique key for rendering. Single weapon: "melee" | "ranged" | "magic".
+   *  Dual wield: "main" | "off" | "combined". Never derived from type. */
+  id: string;
   type: AttackType;
   label: string;
   driver: string;    // main scaling attribute displayed in the UI
@@ -127,14 +181,66 @@ export interface AttackBreakdown {
   stanceMult: number;
   total: number;
   isPrimary: boolean; // true when this attack type matches the equipped weapon
+  /** Badge text shown on the tile. Defaults to "Primary" when isPrimary is true. */
+  badgeLabel?: string;
+  /** True when this entry is the combined (summed) dual wield total row. */
+  isCombined?: boolean;
 }
 
-/** Returns the three attack breakdowns (melee, ranged, magic) for the UI. */
+const TYPE_DRIVER: Record<AttackType, string> = { melee: "STR", ranged: "DEX", magic: "INT" };
+
+/** Returns attack breakdowns for the UI.
+ *  - Single weapon: three tiles (melee, ranged, magic) as before.
+ *  - Dual wield: main-hand tile + off-hand tile + combined total tile. */
 export function computeAttacks(build: Build): AttackBreakdown[] {
   const c = computeCore(build);
+  const isDual = build.offhand !== "none" && build.offhand !== "shield";
+
+  if (isDual) {
+    const mainType = WEAPONS[build.weapon].type;
+    const offType = WEAPONS[build.offhand as import("@/lib/types").WeaponKey].type;
+    return [
+      {
+        id: "main",
+        type: mainType,
+        label: `Main Hand (${WEAPONS[build.weapon].label})`,
+        driver: TYPE_DRIVER[mainType],
+        base: c.mainAtk / c.stanceMult,
+        stanceMult: c.stanceMult,
+        total: c.mainAtk,
+        isPrimary: true,
+        badgeLabel: "Main",
+      },
+      {
+        id: "off",
+        type: offType,
+        label: `Off Hand (${WEAPONS[build.offhand as import("@/lib/types").WeaponKey].label})`,
+        driver: TYPE_DRIVER[offType],
+        base: c.offAtk / c.stanceMult,
+        stanceMult: c.stanceMult,
+        total: c.offAtk,
+        isPrimary: true,
+        badgeLabel: "Off",
+      },
+      {
+        id: "combined",
+        type: mainType,
+        label: "Combined ATK",
+        driver: "Both",
+        base: (c.mainAtk + c.offAtk) / c.stanceMult,
+        stanceMult: c.stanceMult,
+        total: c.mainAtk + c.offAtk,
+        isPrimary: true,
+        badgeLabel: "Total",
+        isCombined: true,
+      },
+    ];
+  }
+
   const weaponType = WEAPONS[build.weapon].type;
   return [
     {
+      id: "melee",
       type: "melee",
       label: "Melee Attack",
       driver: "STR",
@@ -144,6 +250,7 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
       isPrimary: weaponType === "melee",
     },
     {
+      id: "ranged",
       type: "ranged",
       label: "Ranged Attack",
       driver: "DEX",
@@ -153,6 +260,7 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
       isPrimary: weaponType === "ranged",
     },
     {
+      id: "magic",
       type: "magic",
       label: "Magic Attack",
       driver: "INT",
@@ -230,12 +338,12 @@ export function computeSpeed(build: Build): SpeedResult {
     200 -
     (50 * (1 - (DEX + INT / 2) / 400)) / (1 + g.CastSpdpct / 100) +
     0.5 * FLOOR(DEX / 10);
-  // (200 - CastSpeed) / 50 is read two ways at once, and both are correct:
-  //   • as a multiplier on a skill's listed cast time  → drives CTR
-  //   • as the game's "Skill delay" in seconds         → time between skill casts
-  // Clamp to 0 so CastSpeed > 200 doesn't produce negative times.
+  // (200 - CastSpeed) / 50 drives the cast time multiplier and CTR.
+  // Clamp to 0 so CastSpeed > 200 doesn't produce a negative multiplier.
   const castTime = Math.max(0, (200 - castSpeed) / 50);
-  const skillDelaySec = castTime;
+  // Skill delay is a manual input (read from the in-game stat window) because the dev has
+  // not published the formula and it depends on ASPD, not Cast Speed.
+  const skillDelaySec = build.skillDelaySec ?? 0.3;
   const maxCastsPerSec = skillDelaySec > 0 ? 1 / skillDelaySec : Infinity;
   // ctrExact for the tile (reconciles with seconds shown); ctr is the dev-rounded value.
   const ctrExact = Math.min(100, (1 - castTime) * 100);
@@ -640,9 +748,10 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
     const skillCrit = s.critApplies ? critMultiplier : 1;
     const perCast = atk * (s.damagePct / 100) * s.hits * skillCrit * mult;
     const actual = Math.max(0, s.baseCastTime * castTimeMult);
-    // A skill cannot repeat faster than the global delay either, so the delay floors its cycle.
-    // This is also what keeps an instant, no-cooldown skill finite instead of dividing by zero.
-    const cycleSec = Math.max(actual + Math.max(0, s.cooldownSec), skillDelaySec);
+    // Cycle = cast time + skill delay + cooldown (all three stack).
+    // The delay is added, not used as a floor, so there is no separate max() needed.
+    // Guard against zero so an instant skill with delay 0 doesn't divide by zero.
+    const cycleSec = actual + skillDelaySec + Math.max(0, s.cooldownSec);
     const contributes = skillsOn && s.enabled;
     const castFraction = cycleSec > 0 ? actual / cycleSec : 0;
     const desiredCastsPerSec = contributes && cycleSec > 0 ? 1 / cycleSec : 0;
@@ -743,12 +852,21 @@ export function computeStats(build: Build): StatResult[] {
   // --- Offense ---
   const stance = getStance(build);
   const stanceNote = `× ${stance.mult} (${stance.label} stance)`;
-  push("meleeAtk", "Melee Attack", c.meleeAtk, "offense",
-    `(LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK*(1+STR/200)) * (1+FLOOR(STR/10)/100) * (1+ATK%) ${stanceNote}`);
-  push("rangedAtk", "Ranged Attack", c.rangedAtk, "offense",
-    `(LV/4 + DEX + STR/5 + LUK/5 + MASTERY + ATK*(1+DEX/200)) * (1+FLOOR(DEX/10)/100) * (1+ATK%) ${stanceNote}`);
-  push("matk", "Magic Attack", c.matk, "offense",
-    `(LV/4 + INT*1.5 + DEX/5 + MASTERY + ATK*(1+INT/200)) * (1+FLOOR(INT/10)/100) * (1+MATK%) ${stanceNote}`);
+  const isDualWield = build.offhand !== "none" && build.offhand !== "shield";
+  if (isDualWield) {
+    push("mainAtk", `Main Hand (${WEAPONS[build.weapon].label})`, c.mainAtk, "offense",
+      `(LV/4 + primary*1.5 + ... + (ATK+WeaponATK)*(1+primary/200)) * decile * (1+ATK%) ${stanceNote}`);
+    push("offAtk", `Off Hand (${WEAPONS[build.offhand as import("@/lib/types").WeaponKey].label})`, c.offAtk, "offense",
+      `(LV/4 + primary*1.5 + ... + (ATK+OffhandATK)*(1+primary/200)) * decile * (1+ATK%) ${stanceNote}`);
+    push("attackByType", "Combined ATK", c.attackByType, "offense", "Main Hand + Off Hand");
+  } else {
+    push("meleeAtk", "Melee Attack", c.meleeAtk, "offense",
+      `(LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + (ATK+WeaponATK)*(1+STR/200)) * (1+FLOOR(STR/10)/100) * (1+ATK%) ${stanceNote}`);
+    push("rangedAtk", "Ranged Attack", c.rangedAtk, "offense",
+      `(LV/4 + DEX + STR/5 + LUK/5 + MASTERY + (ATK+WeaponATK)*(1+DEX/200)) * (1+FLOOR(DEX/10)/100) * (1+ATK%) ${stanceNote}`);
+    push("matk", "Magic Attack", c.matk, "offense",
+      `(LV/4 + INT*1.5 + DEX/5 + MASTERY + (ATK+WeaponATK)*(1+INT/200)) * (1+FLOOR(INT/10)/100) * (1+MATK%) ${stanceNote}`);
+  }
 
   // --- Speed ---
   const sp = computeSpeed(build);
@@ -770,14 +888,14 @@ export function computeStats(build: Build): StatResult[] {
   push("castSpeed", "Cast Speed", sp.castSpeed, "speed",
     "200 - 50*(1-(DEX+INT/2)/400)/(1+CastSpd%) + 0.5*FLOOR(DEX/10)", fmt(sp.castSpeed, 1));
   push("skillDelay", "Skill Delay", sp.skillDelaySec, "speed",
-    "(200 - CastSpeed) / 50", `${fmt(sp.skillDelaySec, 3)}s`,
-    "Time between skill casts — the cast-speed twin of Attack Delay");
+    "manual input (tracks ASPD; formula not published)", `${fmt(sp.skillDelaySec, 3)}s`,
+    "Time between skill casts — read from the in-game stat window");
   push("maxCastsPerSec", "Max casts / sec", sp.maxCastsPerSec, "speed",
     "1 / SkillDelay", `${fmt(sp.maxCastsPerSec, 2)}/s`,
     "Shared ceiling across every skill in the rotation");
   push("castTime", "Cast Time multiplier", sp.castTime, "speed",
     "(200 - CastSpeed) / 50", `${fmt(sp.castTime, 3)}`,
-    "Same number as Skill Delay — CastSpeed has no per-skill base term, so its reference skill is 1s");
+    "Fraction of a skill's listed cast time you pay (drives CTR; separate from Skill Delay)");
   push("ctr", "Cast Time Reduction", sp.ctr, "speed",
     "ROUND((1 - (200-CastSpeed)/50) × 100)", `${fmt(sp.ctr, 0)}%`);
   push("actualCastTime", "Actual cast time", sp.actualCastTime, "speed",

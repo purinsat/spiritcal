@@ -12,8 +12,13 @@ They apply a final multiplier to ATK and MATK (both physical and magic attack po
 ## Notes
 - The stance multiplier is a **final/end** multiplier, applied after the base ATK/MATK formula
   (consistent with formulas.md: "Unique multipliers are applied at the end").
-- Dual Wield gets its own advantage: the second weapon adds stats, and attack delay uses
-  the dual-wield formula `(BAD1 + BAD2) × 0.8` instead of the single-weapon BAD.
+- **Dual Wield ATK (confirmed Aug 2026)**: the game shows two separate attack totals in the stat
+  window, one for each weapon. Each runs the full attack formula independently using its weapon's
+  own flat ATK and its own type (melee/ranged/magic). Shared terms (LV/4, STR*1.5, MASTERY,
+  ATK%, etc.) are counted in both totals. The effective attack used in damage calculations is the
+  **sum** of both totals — that is why dual wield carries no stance multiplier; its advantage
+  is the extra weapon instead. The formula: `attackByType = mainAtk + offAtk`.
+- Attack delay uses the dual-wield formula `(BAD1 + BAD2) × 0.8` instead of the single-weapon BAD.
 - Shield does NOT change attack delay (only the offhand weapon slot triggers dual-wield BAD).
 
 ## Sources

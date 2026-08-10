@@ -164,7 +164,7 @@ export function SpeedSection({
               accent={accent}
             />
             <SpeedTile
-              label={`Skill cast time (${fmt(sp.skillCastTime, 1)}s base)`}
+              label={`Cast time (${fmt(sp.skillCastTime, 1)}s base)`}
               value={`${fmt(sp.actualCastTime, 2)}s`}
               badge={
                 <span className="text-sm font-semibold text-secondary">
@@ -192,15 +192,19 @@ export function SpeedSection({
         <DetailRow label="Base Attack Delay (BAD)" value={fmt(sp.bad, 2)} />
         <DetailRow label="Cast Speed" value={fmt(sp.castSpeed, 1)} />
         <DetailRow
-          label="Skill delay = (200 − Cast Speed) / 50"
+          label="Cast time multiplier = (200 − Cast Speed) / 50"
+          value={fmt(sp.castTime, 3)}
+          hint={`${fmt(sp.ctr, 0)}% CTR`}
+        />
+        <DetailRow
+          label="Skill delay"
           value={`${fmt(sp.skillDelaySec, 3)}s`}
+          hint="entered manually"
         />
         <p className="mt-2 text-[11px] leading-relaxed text-muted">
-          Skill delay and the cast time multiplier are the same number ({fmt(sp.castTime, 2)}), and
-          that is not a bug. ASPD multiplies by your weapon&apos;s Base Attack Delay in seconds, but
-          the Cast Speed formula has no per-skill term, so its reference skill is exactly 1 second —
-          which makes the result readable both as seconds of delay and as the fraction of a
-          skill&apos;s listed cast time you pay.
+          Skill delay tracks ASPD, not Cast Speed. The dev has not published the formula, so
+          read it from the game&apos;s stat window and enter it below. Cast Speed only drives
+          Cast Time Reduction (CTR), which shortens how long each skill takes to cast.
         </p>
       </FormulaDetails>
 
@@ -263,7 +267,7 @@ export function SpeedSection({
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Skill cast time test
+            Skill timing inputs
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <NumberInput
@@ -274,6 +278,15 @@ export function SpeedSection({
               suffix="s"
               onChange={(v) => onChange({ ...build, skillCastTime: v })}
               hint="Enter the skill's listed cast time to see how long it takes with your stats"
+            />
+            <NumberInput
+              label="Skill delay"
+              value={build.skillDelaySec ?? 0.3}
+              min={0}
+              step={0.01}
+              suffix="s"
+              onChange={(v) => onChange({ ...build, skillDelaySec: v })}
+              hint="Read this from the in-game stat window (tracks ASPD, formula not published by dev)"
             />
           </div>
         </div>

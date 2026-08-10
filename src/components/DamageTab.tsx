@@ -127,9 +127,11 @@ function SharedBanner({
   swapsApplied?: boolean;
   swapCount?: number;
 }) {
+  const isDual = build.offhand !== "none" && build.offhand !== "shield";
   const weaponType = WEAPONS[build.weapon]?.type ?? "melee";
-  const atkLabel =
-    weaponType === "magic" ? "Magic ATK" : weaponType === "ranged" ? "Ranged ATK" : "Melee ATK";
+  const atkLabel = isDual
+    ? "Total ATK"
+    : weaponType === "magic" ? "Magic ATK" : weaponType === "ranged" ? "Ranged ATK" : "Melee ATK";
 
   const stats = [
     { label: atkLabel, value: fmt(dm.atk) },
@@ -162,10 +164,10 @@ function SharedBanner({
         ))}
       </div>
       <p className="mt-3 text-[11px] text-muted">
-        Skill delay is your Cast Speed read as seconds — the minimum gap between skill casts, so at
-        most {fmt(dm.maxCastsPerSec, 2)} casts/sec. The same number cuts every skill&apos;s listed
-        cast time to {fmt(dm.castTimeMult * 100, 0)}% of what the tooltip says ({fmt(dm.ctr, 0)}%
-        CTR).
+        Skill delay ({fmt(dm.skillDelaySec, 2)}s, set in the Speed section) is the minimum gap
+        added between every skill cast, capping total casts at {fmt(dm.maxCastsPerSec, 2)}/sec.
+        Cast Speed gives {fmt(dm.ctr, 0)}% CTR, cutting each skill&apos;s listed cast time to{" "}
+        {fmt(dm.castTimeMult * 100, 0)}% of the tooltip value.
       </p>
     </div>
   );
@@ -683,10 +685,10 @@ function SkillsBlock({
             Capped by skill delay
           </p>
           <p className="text-sm text-foreground">
-            Your cooldowns would allow {fmt(dm.desiredCastsPerSec, 2)} casts/sec, but skill delay
-            only lets you cast every {fmt(dm.skillDelaySec, 2)}s — a ceiling of{" "}
-            {fmt(dm.maxCastsPerSec, 2)}/s across all skills combined. More cast speed raises this
-            ceiling; shorter cooldowns will not.
+            Your cooldowns would allow {fmt(dm.desiredCastsPerSec, 2)} casts/sec, but the{" "}
+            {fmt(dm.skillDelaySec, 2)}s skill delay holds you to{" "}
+            {fmt(dm.maxCastsPerSec, 2)}/s across all skills. Lower skill delay (raise ASPD) to lift
+            the ceiling; shorter cooldowns will not help.
           </p>
         </div>
       )}
@@ -722,10 +724,10 @@ function SkillsBlock({
       </Button>
 
       <p className="text-[11px] text-muted">
-        Each skill repeats on a cycle of cast time plus cooldown, and cooldown is assumed to start
-        when the cast finishes. On top of that, skill delay ({fmt(dm.skillDelaySec, 2)}s from your
-        Cast Speed) sets the minimum gap between any two casts, so all your skills together cannot
-        exceed {fmt(dm.maxCastsPerSec, 2)} casts/sec. Whatever time your skills leave free is spent
+        Each skill repeats on a cycle of cast time + skill delay + cooldown (all three add up).
+        Skill delay ({fmt(dm.skillDelaySec, 2)}s — set in the Speed section, tracks ASPD) also
+        acts as a global cap, so all skills together cannot exceed{" "}
+        {fmt(dm.maxCastsPerSec, 2)} casts/sec. Whatever time your skills leave free is spent
         autoattacking.
       </p>
     </div>
@@ -1031,9 +1033,9 @@ function CombinedBlock({ build, dm }: { build: Build; dm: Breakdown }) {
         <div className="rounded-xl border border-accent/30 bg-accent/6 p-4">
           <p className="text-sm text-foreground">
             <strong className="text-accent">Capped by skill delay.</strong> Your cooldowns would
-            allow {fmt(dm.desiredCastsPerSec, 2)} casts/sec, but the {fmt(dm.skillDelaySec, 2)}s gap
-            between casts holds you to {fmt(dm.maxCastsPerSec, 2)}/s. Raise Cast Speed to lift the
-            ceiling — shorter cooldowns will not help.
+            allow {fmt(dm.desiredCastsPerSec, 2)} casts/sec, but the {fmt(dm.skillDelaySec, 2)}s
+            skill delay holds you to {fmt(dm.maxCastsPerSec, 2)}/s. Lower skill delay (raise ASPD)
+            to lift the ceiling — shorter cooldowns will not help.
           </p>
         </div>
       )}

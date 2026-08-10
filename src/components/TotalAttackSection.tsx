@@ -46,7 +46,7 @@ function AttackTile({ atk, accent }: { atk: AttackBreakdown; accent?: AccentKey 
                 ac?.badgeText ?? "text-primary",
               )}
             >
-              Primary
+              {atk.badgeLabel ?? "Primary"}
             </span>
           )}
         </span>
@@ -123,8 +123,8 @@ const ATTR_INPUTS: AttrInput[] = [
 ];
 
 type GearInput = { key: keyof GearMods; label: string; hint: string; suffix?: string };
-const GEAR_INPUTS: GearInput[] = [
-  { key: "ATK", label: "Flat ATK", hint: "ATK added by weapon / gear" },
+const GEAR_INPUTS_BASE: GearInput[] = [
+  { key: "ATK", label: "Other Flat ATK", hint: "Flat ATK from armor, accessories, buffs (not the weapons themselves)" },
   { key: "MASTERY", label: "Mastery", hint: "Flat attack bonus from Mastery stat" },
   { key: "ATKpct", label: "ATK%", hint: "% attack boost on gear / buffs", suffix: "%" },
   { key: "MATKpct", label: "MATK%", hint: "% magic attack boost on gear / buffs", suffix: "%" },
@@ -154,7 +154,7 @@ export function TotalAttackSection({
       {/* --- Three attack tiles --- */}
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {attacks.map((a) => (
-          <AttackTile key={a.type} atk={a} accent={accent} />
+          <AttackTile key={a.id} atk={a} accent={accent} />
         ))}
       </div>
 
@@ -201,11 +201,27 @@ export function TotalAttackSection({
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Attack from gear</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {GEAR_INPUTS.map((f) => (
+          <NumberInput
+            label={`${WEAPONS[build.weapon].label} ATK`}
+            value={build.gear.WeaponATK}
+            min={0}
+            onChange={(v) => setGear("WeaponATK", v)}
+            hint="Flat ATK on your main-hand weapon"
+          />
+          {build.offhand !== "none" && build.offhand !== "shield" && (
+            <NumberInput
+              label={`${WEAPONS[build.offhand].label} ATK`}
+              value={build.gear.OffhandATK}
+              min={0}
+              onChange={(v) => setGear("OffhandATK", v)}
+              hint="Flat ATK on your off-hand weapon"
+            />
+          )}
+          {GEAR_INPUTS_BASE.map((f) => (
             <NumberInput
               key={f.key}
               label={f.label}
-              value={build.gear[f.key]}
+              value={build.gear[f.key] as number}
               min={0}
               suffix={f.suffix}
               onChange={(v) => setGear(f.key, v)}

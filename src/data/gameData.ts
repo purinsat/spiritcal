@@ -228,6 +228,8 @@ export const DEFAULT_ATTRS: Attributes = {
 
 export const DEFAULT_GEAR: GearMods = {
   ATK: 0,
+  WeaponATK: 0,
+  OffhandATK: 0,
   MASTERY: 0,
   DEF: 0,
   MDEF: 0,
@@ -318,6 +320,7 @@ export function makeDefaultBuild(name = "New Build"): Build {
     element: "neutral",
     target: { ...DEFAULT_TARGET },
     skillCastTime: 2,
+    skillDelaySec: 0.3,
     durationSec: 10,
     leechDamageBasis: 0,
     damage: {

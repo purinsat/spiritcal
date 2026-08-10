@@ -34,8 +34,8 @@ function PresetCard({
 
   const core = computeCore(build);
   const atkType = WEAPONS[build.weapon].type;
-  const primaryAtk =
-    atkType === "magic" ? core.matk : atkType === "ranged" ? core.rangedAtk : core.meleeAtk;
+  // Use attackByType so dual wield (summed) is reflected correctly.
+  const primaryAtk = core.attackByType;
 
   const share = async () => {
     try {
@@ -81,7 +81,7 @@ function PresetCard({
           <div className="font-semibold tabular-nums">{build.attrs.LV}</div>
         </div>
         <div className="rounded-lg bg-surface-2 py-1.5">
-          <div className="text-muted">{atkType} atk</div>
+          <div className="text-muted">{build.offhand !== "none" && build.offhand !== "shield" ? "total atk" : `${atkType} atk`}</div>
           <div className="font-semibold tabular-nums">
             {Math.round(primaryAtk).toLocaleString()}
           </div>
