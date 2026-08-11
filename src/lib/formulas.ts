@@ -8,7 +8,7 @@
 //
 // SOURCE OF TRUTH for the math is mechanics/formulas.md. Keep this in sync.
 
-import { ARCHETYPES, WEAPONS, elementMultiplier, getStance, DEFAULT_DAMAGE } from "@/data/gameData";
+import { ARCHETYPES, WEAPONS, elementMultiplier, getStance, DEFAULT_DAMAGE, CTR_CAP_PCT } from "@/data/gameData";
 import type { AttackType, Build, DamageMultiplier, StatResult } from "@/lib/types";
 
 const FLOOR = Math.floor;
@@ -364,10 +364,12 @@ export interface SpeedResult {
   skillDelaySec: number;
   /** Ceiling on how many skills can be cast per second, across all skills: 1 / skillDelaySec. */
   maxCastsPerSec: number;
-  /** Exact (unrounded) cast time reduction percentage, used for the tile display. */
+  /** Exact (unrounded) cast time reduction percentage, used for the tile display. Capped at CTR_CAP_PCT. */
   ctrExact: number;
-  /** Rounded integer CTR as per the dev formula, used in the stat sheet. */
+  /** Rounded integer CTR as per the dev formula, used in the stat sheet. Capped at CTR_CAP_PCT. */
   ctr: number;
+  /** True when Cast Speed is high enough that the 90% CTR cap is in effect. */
+  isCtrCapped: boolean;
   /** The skill base cast time the player entered (seconds). */
   skillCastTime: number;
   /** Actual cast time after reduction: skillCastTime × castTime (seconds). */
@@ -407,14 +409,17 @@ export function computeSpeed(build: Build): SpeedResult {
     (50 * (1 - (DEX + INT / 2) / 400)) / (1 + g.CastSpdpct / 100) +
     0.5 * FLOOR(DEX / 10);
   // (200 - CastSpeed) / 50 drives the cast time multiplier and CTR.
-  // Clamp to 0 so CastSpeed > 200 doesn't produce a negative multiplier.
-  const castTime = Math.max(0, (200 - castSpeed) / 50);
+  // castTimeFloor enforces the 90% CTR hard cap — you always pay at least 10% of a skill's listed cast time.
+  const castTimeFloor = 1 - CTR_CAP_PCT / 100;   // 0.10
+  const castTimeRaw = (200 - castSpeed) / 50;
+  const castTime = Math.max(castTimeFloor, castTimeRaw);
+  const isCtrCapped = castTimeRaw < castTimeFloor;
   // Skill delay is a manual input (read from the in-game stat window) because the dev has
   // not published the formula and it depends on ASPD, not Cast Speed.
   const skillDelaySec = build.skillDelaySec ?? 0.3;
   const maxCastsPerSec = skillDelaySec > 0 ? 1 / skillDelaySec : Infinity;
-  // ctrExact for the tile (reconciles with seconds shown); ctr is the dev-rounded value.
-  const ctrExact = Math.min(100, (1 - castTime) * 100);
+  // ctrExact and ctr naturally stay ≤ CTR_CAP_PCT because castTime is floored above.
+  const ctrExact = (1 - castTime) * 100;
   const ctr = ROUND(ctrExact);
 
   const skillCastTime = build.skillCastTime ?? 2;
@@ -436,6 +441,7 @@ export function computeSpeed(build: Build): SpeedResult {
     effectiveHitsPerSec,
     castSpeed,
     castTime,
+    isCtrCapped,
     skillDelaySec,
     maxCastsPerSec,
     ctrExact,
@@ -957,6 +963,15 @@ export function computeStats(build: Build): StatResult[] {
     hint?: string,
   ) => out.push({ key, label, value, group, formula, display: display ?? fmt(value), hint });
 
+  // --- Attributes ---
+  push("LV",  "Level", LV,  "attributes", "character level");
+  push("STR", "STR",   STR, "attributes", "total STR");
+  push("AGI", "AGI",   AGI, "attributes", "total AGI");
+  push("VIT", "VIT",   VIT, "attributes", "total VIT");
+  push("INT", "INT",   INT, "attributes", "total INT");
+  push("DEX", "DEX",   DEX, "attributes", "total DEX");
+  push("LUK", "LUK",   LUK, "attributes", "total LUK");
+
   // --- Offense ---
   const stance = getStance(build);
   const stanceNote = `× ${stance.mult} (${stance.label} stance)`;
@@ -1005,7 +1020,8 @@ export function computeStats(build: Build): StatResult[] {
     "(200 - CastSpeed) / 50", `${fmt(sp.castTime, 3)}`,
     "Fraction of a skill's listed cast time you pay (drives CTR; separate from Skill Delay)");
   push("ctr", "Cast Time Reduction", sp.ctr, "speed",
-    "ROUND((1 - (200-CastSpeed)/50) × 100)", `${fmt(sp.ctr, 0)}%`);
+    "MIN(90, ROUND((1 - (200-CastSpeed)/50) × 100))", `${fmt(sp.ctr, 0)}%`,
+    sp.isCtrCapped ? "Capped at 90% — further Cast Speed has no effect" : undefined);
   push("actualCastTime", "Actual cast time", sp.actualCastTime, "speed",
     "skillCastTime × castTime multiplier", `${fmt(sp.actualCastTime, 3)}s`,
     `${fmt(sp.skillCastTime, 1)}s skill — saves ${fmt(sp.secondsSaved, 3)}s`);
@@ -1137,6 +1153,7 @@ export function computeStats(build: Build): StatResult[] {
 }
 
 export const STAT_GROUP_ORDER: StatResult["group"][] = [
+  "attributes",
   "offense",
   "vsTarget",
   "crit",
@@ -1149,6 +1166,7 @@ export const STAT_GROUP_ORDER: StatResult["group"][] = [
 ];
 
 export const STAT_GROUP_LABEL: Record<StatResult["group"], string> = {
+  attributes: "Attributes",
   offense: "Offense",
   vsTarget: "Vs Target",
   crit: "Critical",

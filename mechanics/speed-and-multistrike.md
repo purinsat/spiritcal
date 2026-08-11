@@ -29,10 +29,9 @@ Where **BAD** (Base Attack Delay) comes from the equipped weapon(s):
 
 ```
 CastSpeed  = 200 - (50 × (1 - (DEX + INT/2)/400)) / (1 + CastSpd%) + 0.5 × FLOOR(DEX/10)
-CastTime   = max(0, (200 - CastSpeed) / 50)   ← multiplier on a skill's listed cast time
-SkillDelay = same number, read as SECONDS     ← the game's "time between skill casts"
-CTR exact  = min(100, (1 - CastTime) × 100)   ← for display (one decimal)
-CTR        = ROUND(CTR exact)                  ← dev formula, used in the stat sheet
+CastTime   = max(0.10, (200 - CastSpeed) / 50)  ← multiplier; floored at 0.10 (90% CTR cap)
+SkillDelay = same number, read as SECONDS        ← the game's "time between skill casts"
+CTR        = MIN(90, ROUND((1 - CastTime) × 100))  ← dev formula, hard cap 90%
 ```
 
 **`CastTime` is both a multiplier and a duration**, and that is not a bug. It scales a skill's
@@ -49,8 +48,13 @@ so its reference skill is exactly 1 second. Full explanation and the rotation co
 **The reduction percentage is fixed for a given build**; only the seconds saved scale with the
 skill's base cast time. Use the "Skill cast time" input in the Speed section to test any skill.
 
-The `CastTime` value is clamped to `max(0, …)` so that a CastSpeed above 200 (theoretically
-possible via very high DEX/INT + gear) cannot produce a negative multiplier.
+### CTR cap
+
+- **Hard cap: 90% CTR** — you always pay at least 10% of a skill's listed cast time.
+- `CastTime` is floored at `0.10` (not `0`); a CastSpeed above 200 never produces a negative multiplier.
+- Cast Speed **195** is exactly where the cap bites: `(200 - 195) / 50 = 0.10` → 90% CTR.
+- Any Cast Speed above 195 is wasted — the reduction does not increase further.
+- The cap is a fixed constant (`CTR_CAP_PCT = 90` in `gameData.ts`). Unlike `AspdLimit` it is not raisable by gear.
 
 The formula in older notes used incorrect parenthesisation (`ROUND(1 - CastTime × 100)`); the
 correct grouping `ROUND((1 - CastTime) × 100)` is used everywhere in this codebase.

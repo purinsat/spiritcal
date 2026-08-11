@@ -272,6 +272,9 @@ export const DEFAULT_GEAR: GearMods = {
 
 export const BASE_ASPD_LIMIT = 193;
 
+/** Cast Time Reduction hard cap (%). You always pay at least (100 - CTR_CAP_PCT)% of a skill's listed cast time. */
+export const CTR_CAP_PCT = 90;
+
 export const DEFAULT_TARGET: Target = {
   enabled: false,
   DEF: 100,

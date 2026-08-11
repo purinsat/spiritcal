@@ -171,7 +171,11 @@ export function SpeedSection({
                   -{fmt(sp.ctrExact, 1)}%
                 </span>
               }
-              sub={`saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}%`}
+              sub={
+                sp.isCtrCapped
+                  ? `saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}% · capped at 90%`
+                  : `saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}%`
+              }
               accent={accent}
             />
           </div>
@@ -194,7 +198,11 @@ export function SpeedSection({
         <DetailRow
           label="Cast time multiplier = (200 − Cast Speed) / 50"
           value={fmt(sp.castTime, 3)}
-          hint={`${fmt(sp.ctr, 0)}% CTR`}
+          hint={
+            sp.isCtrCapped
+              ? `${fmt(sp.ctr, 0)}% CTR (capped at 90%; raw ${fmt((1 - (200 - sp.castSpeed) / 50) * 100, 1)}%)`
+              : `${fmt(sp.ctr, 0)}% CTR`
+          }
         />
         <DetailRow
           label="Skill delay"

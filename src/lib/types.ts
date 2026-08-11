@@ -147,6 +147,7 @@ export interface Build {
 }
 
 export type StatGroup =
+  | "attributes"
   | "offense"
   | "speed"
   | "defense"
