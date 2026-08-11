@@ -5,7 +5,7 @@
 // cooldown gaps are filled by autoattacking, so cast time and cooldown both matter.
 
 import * as React from "react";
-import type { Build, DamageConfig, ElementKey, SkillEntry } from "@/lib/types";
+import type { AttackType, Build, DamageConfig, ElementKey, SkillEntry, SourceAttackType } from "@/lib/types";
 import { computeDamageBreakdown, type SkillResult } from "@/lib/formulas";
 import { WEAPONS, DEFAULT_SKILL, ELEMENTS, ELEMENT_LABEL } from "@/data/gameData";
 import { SectionCard } from "@/components/SectionCard";
@@ -15,6 +15,12 @@ import { Button, NumberInput, Select, TextInput, Toggle, cn } from "@/components
 import { SECTION_ACCENTS } from "@/lib/sectionAccents";
 
 type Breakdown = ReturnType<typeof computeDamageBreakdown>;
+
+const ATK_TYPE_LABELS: Record<AttackType, string> = {
+  melee: "Melee — STR",
+  ranged: "Ranged — DEX",
+  magic: "Magic — INT / MATK",
+};
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -63,18 +69,23 @@ function ResultTile({
   );
 }
 
-function CritToggleRow({
+function ToggleRow({
   label,
+  hint,
   checked,
   onChange,
 }: {
   label: string;
+  hint?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2/40 px-3 py-2">
-      <span className="text-sm text-foreground">{label}</span>
+      <span className="flex flex-col">
+        <span className="text-sm text-foreground">{label}</span>
+        {hint && <span className="text-[11px] text-muted">{hint}</span>}
+      </span>
       <Toggle checked={checked} onChange={onChange} label={checked ? "Yes" : "No"} />
     </div>
   );
@@ -427,6 +438,8 @@ function SkillRow({
   targetEnabled,
   durationSec,
   skillDelaySec,
+  avgHitsPerAttack,
+  weaponType,
 }: {
   skill: SkillEntry;
   result: SkillResult | undefined;
@@ -435,6 +448,8 @@ function SkillRow({
   targetEnabled: boolean;
   durationSec: number;
   skillDelaySec: number;
+  avgHitsPerAttack: number;
+  weaponType: AttackType;
 }) {
   const [open, setOpen] = React.useState(false);
   const ac = SECTION_ACCENTS.skill;
@@ -501,7 +516,18 @@ function SkillRow({
             <ResultTile
               label="Per cast"
               value={fmt(result?.perCast ?? 0)}
-              sub={`${skill.damagePct}% × ${skill.hits} hit${skill.hits !== 1 ? "s" : ""}`}
+              sub={(() => {
+                const resolvedType: AttackType = skill.attackType === "weapon" ? weaponType : (skill.attackType as AttackType);
+                const typeLabel = resolvedType === "magic" ? "MATK" : resolvedType === "ranged" ? "RNG ATK" : "Melee ATK";
+                const runs = result?.weaponRuns ?? 1;
+                const atkPart = result
+                  ? `${typeLabel} ${fmt(result.atkUsed)}${runs > 1 ? ` (${runs} weapons)` : ""}`
+                  : typeLabel;
+                const hitPart = skill.multistrikeApplies
+                  ? `${skill.damagePct}% × ${skill.hits} hit${skill.hits !== 1 ? "s" : ""} × ${avgHitsPerAttack.toFixed(2)} MS`
+                  : `${skill.damagePct}% × ${skill.hits} hit${skill.hits !== 1 ? "s" : ""}`;
+                return `${atkPart} · ${hitPart}`;
+              })()}
             />
             <ResultTile
               label="Cast time"
@@ -569,13 +595,29 @@ function SkillRow({
               suffix="s"
               hint="Starts when the cast finishes"
             />
-            <div />
+            <Select
+              label="Attack type"
+              value={skill.attackType ?? "weapon"}
+              onChange={(v) => onChange({ ...skill, attackType: v as SourceAttackType })}
+              options={[
+                { value: "weapon", label: `Auto — weapon (${ATK_TYPE_LABELS[weaponType]})` },
+                { value: "melee", label: ATK_TYPE_LABELS.melee },
+                { value: "ranged", label: ATK_TYPE_LABELS.ranged },
+                { value: "magic", label: ATK_TYPE_LABELS.magic },
+              ]}
+            />
           </div>
 
-          <CritToggleRow
+          <ToggleRow
             label="Crit applies to this skill"
             checked={skill.critApplies}
             onChange={(critApplies) => onChange({ ...skill, critApplies })}
+          />
+          <ToggleRow
+            label="Triggers multistrike"
+            hint={skill.multistrikeApplies ? `×${avgHitsPerAttack.toFixed(2)} hits applied` : `×${avgHitsPerAttack.toFixed(2)} factor (toggle on to apply)`}
+            checked={skill.multistrikeApplies}
+            onChange={(multistrikeApplies) => onChange({ ...skill, multistrikeApplies })}
           />
 
           <MultiplierList
@@ -708,6 +750,8 @@ function SkillsBlock({
               targetEnabled={dm.targetEnabled}
               durationSec={build.durationSec}
               skillDelaySec={dm.skillDelaySec}
+              avgHitsPerAttack={dm.avgHitsPerAttack}
+              weaponType={WEAPONS[build.weapon].type}
               onChange={(updated) => {
                 const next = [...skills.entries];
                 next[i] = updated;
@@ -806,7 +850,7 @@ function StatusBlock({
         />
       </div>
 
-      <CritToggleRow
+      <ToggleRow
         label="Crit applies to status ticks"
         checked={status.critApplies}
         onChange={(critApplies) => setStatus({ ...status, critApplies })}
@@ -861,7 +905,11 @@ function AutocastBlock({
         <ResultTile
           label="Per proc"
           value={fmt(dm.acPerCast)}
-          sub={`${autocast.damagePct}% ATK`}
+          sub={(() => {
+            const typeLabel = dm.acAttackType === "magic" ? "MATK" : dm.acAttackType === "ranged" ? "RNG ATK" : "Melee ATK";
+            const runs = dm.acWeaponRuns > 1 ? ` (${dm.acWeaponRuns} weapons)` : "";
+            return `${typeLabel} ${fmt(dm.acAtkUsed)}${runs} · ${autocast.damagePct}%`;
+          })()}
           accentText={ac.tileText}
           accentBg={ac.tileBg}
           accentBorder={ac.tileBorder}
@@ -908,10 +956,20 @@ function AutocastBlock({
           step={1}
           suffix="%"
         />
-        <div />
+        <Select
+          label="Attack type"
+          value={autocast.attackType ?? "weapon"}
+          onChange={(v) => setAutocast({ ...autocast, attackType: v as SourceAttackType })}
+          options={[
+            { value: "weapon", label: `Auto — weapon (${ATK_TYPE_LABELS[WEAPONS[build.weapon].type]})` },
+            { value: "melee", label: ATK_TYPE_LABELS.melee },
+            { value: "ranged", label: ATK_TYPE_LABELS.ranged },
+            { value: "magic", label: ATK_TYPE_LABELS.magic },
+          ]}
+        />
       </div>
 
-      <CritToggleRow
+      <ToggleRow
         label="Crit applies to autocast"
         checked={autocast.critApplies}
         onChange={(critApplies) => setAutocast({ ...autocast, critApplies })}

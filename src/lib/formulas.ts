@@ -38,6 +38,13 @@ export interface Computed {
   mainAtk: number;
   /** Off-hand attack total (0 for non-dual-wield builds). */
   offAtk: number;
+  /** Per-type attack for skills and autocast: one full formula run per equipped weapon
+   *  whose own type matches, then summed — the same rule autoattacks use.
+   *  When no equipped weapon has that type, a single run off non-weapon flat stats.
+   *  For single-weapon builds these equal meleeAtk/rangedAtk/matk. */
+  skillAtkByType: Record<import("@/lib/types").AttackType, number>;
+  /** How many weapons contributed a run to each entry of skillAtkByType (1 when none matched). */
+  skillWeaponRunsByType: Record<import("@/lib/types").AttackType, number>;
   stanceMult: number;
   def: number;
   mdef: number;
@@ -49,11 +56,14 @@ export interface Computed {
   mp: number;
 }
 
-/** Helper: run the full attack formula for one weapon's flat-ATK contribution and type.
- *  `flatAtk` = non-weapon ATK + this weapon's own ATK. Mastery is always shared. */
+/** Helper: run the full attack formula for one weapon's contribution.
+ *  `flatAtk` = non-weapon ATK + this weapon's own ATK (used for melee/ranged).
+ *  `flatMatk` = non-weapon MATK + this weapon's own MATK (used for magic).
+ *  Mastery is always shared. */
 function attackForWeapon(
   type: import("@/lib/types").AttackType,
   flatAtk: number,
+  flatMatk: number,
   attrs: Build["attrs"],
   mastery: number,
   atkPct: number,
@@ -63,7 +73,7 @@ function attackForWeapon(
   const { LV, STR, DEX, INT, LUK } = attrs;
   if (type === "magic") {
     return (
-      (LV / 4 + INT * 1.5 + DEX / 5 + mastery + flatAtk * (1 + INT / 200)) *
+      (LV / 4 + INT * 1.5 + DEX / 5 + mastery + flatMatk * (1 + INT / 200)) *
       (1 + FLOOR(INT / 10) / 100) *
       (1 + matkPct) *
       stanceMult
@@ -98,32 +108,79 @@ export function computeCore(build: Build): Computed {
   // per formulas.md: "Unique multipliers are applied at the end").
   const stanceMult = getStance(build).mult;
 
-  // Single-weapon totals use all ATK sources (non-weapon + weapon ATK).
-  const meleeAtk = attackForWeapon("melee", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
-  const rangedAtk = attackForWeapon("ranged", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
-  const matk = attackForWeapon("magic", g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  // Flat ATK/MATK pools for single-weapon and per-weapon use.
+  const flatAtkMain = g.ATK + g.WeaponATK;
+  const flatMatkMain = g.MATK + g.WeaponMATK;
+
+  // Single-weapon totals (single run each type using main-hand weapon's own ATK).
+  const meleeAtk = attackForWeapon("melee", flatAtkMain, flatMatkMain, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  const rangedAtk = attackForWeapon("ranged", flatAtkMain, flatMatkMain, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  const matk = attackForWeapon("magic", flatAtkMain, flatMatkMain, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
 
   const isDual = build.offhand !== "none" && build.offhand !== "shield";
   const mainType = WEAPONS[build.weapon].type;
+  const offType = isDual
+    ? WEAPONS[build.offhand as import("@/lib/types").WeaponKey].type
+    : null;
 
   // Main-hand total always uses the main weapon's type.
-  const mainAtk = attackForWeapon(mainType, g.ATK + g.WeaponATK, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+  const mainAtk = attackForWeapon(mainType, flatAtkMain, flatMatkMain, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
 
-  // Off-hand total uses its own weapon type and its own weapon ATK.
-  const offAtk = isDual
-    ? attackForWeapon(
-        WEAPONS[build.offhand as import("@/lib/types").WeaponKey].type,
-        g.ATK + g.OffhandATK,
-        build.attrs,
-        g.MASTERY,
-        atkPct,
-        matkPct,
-        stanceMult,
-      )
+  // Off-hand total uses its own weapon type and its own weapon ATK/MATK.
+  const flatAtkOff = g.ATK + g.OffhandATK;
+  const flatMatkOff = g.MATK + g.OffhandMATK;
+  const offAtk = offType
+    ? attackForWeapon(offType, flatAtkOff, flatMatkOff, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult)
     : 0;
 
-  // Dual wield effective ATK = sum of both weapon totals.
+  // Dual wield effective ATK = sum of both weapon totals (for autoattacks).
   const attackByType = isDual ? mainAtk + offAtk : mainAtk;
+
+  // Skill / autocast ATK: one full formula run per equipped weapon of the matching type,
+  // then summed — the same rule autoattacks use. Dev-confirmed Aug 2026: dual wielding
+  // magic weapons shows two MATK values in the stat window, just as physical shows two ATK.
+  const equipped: { type: AttackType; atk: number; matk: number }[] = [
+    { type: mainType, atk: g.WeaponATK, matk: g.WeaponMATK },
+    ...(offType ? [{ type: offType, atk: g.OffhandATK, matk: g.OffhandMATK }] : []),
+  ];
+
+  const run = (t: AttackType, atk: number, matk: number) =>
+    attackForWeapon(t, g.ATK + atk, g.MATK + matk, build.attrs, g.MASTERY, atkPct, matkPct, stanceMult);
+
+  const skillAtkFor = (t: AttackType): { total: number; runs: number } => {
+    const matching = equipped.filter((w) => w.type === t);
+    if (matching.length > 0) {
+      return {
+        total: matching.reduce((sum, w) => sum + run(t, w.atk, w.matk), 0),
+        runs: matching.length,
+      };
+    }
+    // No equipped weapon of this type — a single run off non-weapon flat stats.
+    // Stray weapon flats are carried, but the off-type branch ignores them
+    // (magic reads only MATK, melee/ranged only ATK), so a pistol adds nothing to magic.
+    return {
+      total: run(
+        t,
+        equipped.reduce((s, w) => s + w.atk, 0),
+        equipped.reduce((s, w) => s + w.matk, 0),
+      ),
+      runs: 1,
+    };
+  };
+
+  const skillMelee = skillAtkFor("melee");
+  const skillRanged = skillAtkFor("ranged");
+  const skillMagic = skillAtkFor("magic");
+  const skillAtkByType: Record<AttackType, number> = {
+    melee: skillMelee.total,
+    ranged: skillRanged.total,
+    magic: skillMagic.total,
+  };
+  const skillWeaponRunsByType: Record<AttackType, number> = {
+    melee: skillMelee.runs,
+    ranged: skillRanged.runs,
+    magic: skillMagic.runs,
+  };
 
   const def = g.DEF * (1 + VIT / 1000 + g.DEFpct / 100);
   const mdef = g.MDEF * (1 + INT / 1000 + g.MDEFpct / 100);
@@ -150,6 +207,8 @@ export function computeCore(build: Build): Computed {
     attackByType,
     mainAtk,
     offAtk,
+    skillAtkByType,
+    skillWeaponRunsByType,
     stanceMult,
     def,
     mdef,
@@ -183,6 +242,8 @@ export interface AttackBreakdown {
   isPrimary: boolean; // true when this attack type matches the equipped weapon
   /** Badge text shown on the tile. Defaults to "Primary" when isPrimary is true. */
   badgeLabel?: string;
+  /** Short type chip shown on dual wield tiles, e.g. "Melee" or "Ranged + Magic". */
+  typeLabel?: string;
   /** True when this entry is the combined (summed) dual wield total row. */
   isCombined?: boolean;
 }
@@ -199,6 +260,10 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
   if (isDual) {
     const mainType = WEAPONS[build.weapon].type;
     const offType = WEAPONS[build.offhand as import("@/lib/types").WeaponKey].type;
+    const TYPE_CHIP: Record<AttackType, string> = { melee: "Melee", ranged: "Ranged", magic: "Magic" };
+    const combinedTypeLabel = mainType === offType
+      ? TYPE_CHIP[mainType]
+      : `${TYPE_CHIP[mainType]} + ${TYPE_CHIP[offType]}`;
     return [
       {
         id: "main",
@@ -210,6 +275,7 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
         total: c.mainAtk,
         isPrimary: true,
         badgeLabel: "Main",
+        typeLabel: TYPE_CHIP[mainType],
       },
       {
         id: "off",
@@ -221,6 +287,7 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
         total: c.offAtk,
         isPrimary: true,
         badgeLabel: "Off",
+        typeLabel: TYPE_CHIP[offType],
       },
       {
         id: "combined",
@@ -232,6 +299,7 @@ export function computeAttacks(build: Build): AttackBreakdown[] {
         total: c.mainAtk + c.offAtk,
         isPrimary: true,
         badgeLabel: "Total",
+        typeLabel: combinedTypeLabel,
         isCombined: true,
       },
     ];
@@ -565,6 +633,14 @@ export interface SkillResult {
   name: string;
   enabled: boolean;
   mult: number;
+  /** Multistrike factor applied to this skill's hits (1 when multistrikeApplies is false). */
+  multistrikeMult: number;
+  /** Resolved attack type used (never "weapon" — always the concrete type). */
+  attackType: import("@/lib/types").AttackType;
+  /** The ATK value fed into this skill's damage formula. */
+  atkUsed: number;
+  /** How many equipped weapons contributed a formula run to atkUsed. */
+  weaponRuns: number;
   /** Listed cast time after Cast Time Reduction. */
   actualCastTime: number;
   /** Cast + cooldown; cooldown is assumed to start when the cast completes. */
@@ -587,6 +663,8 @@ export interface DamageBreakdownResult {
   critMultiplier: number;
   baseHitsPerSec: number;
   effHitsPerSec: number;
+  /** Average hits per autoattack swing (1 + Multistrike/100). Skills use this when multistrikeApplies. */
+  avgHitsPerAttack: number;
   /** Multiplier applied to every skill's listed cast time. */
   castTimeMult: number;
   ctr: number;
@@ -635,6 +713,12 @@ export interface DamageBreakdownResult {
 
   // Autocast (full rate)
   acMult: number;
+  /** Resolved attack type used for autocast damage. */
+  acAttackType: import("@/lib/types").AttackType;
+  /** The ATK value fed into the autocast damage formula. */
+  acAtkUsed: number;
+  /** How many equipped weapons contributed a formula run to acAtkUsed. */
+  acWeaponRuns: number;
   acPerCast: number;
   acProcsPerSec: number;
   acDps: number;
@@ -682,6 +766,7 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
   const critMultiplier = cr.critMultiplier;
   const baseHitsPerSec = sp.hitsPerSec;
   const effHitsPerSec = sp.effectiveHitsPerSec;
+  const avgHitsPerAttack = sp.avgHitsPerAttack;
   const castTimeMult = sp.castTime;
   const durationSec = build.durationSec ?? 10;
 
@@ -692,21 +777,30 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
   const autocastOn = d.autocast.enabled && aaOn;
   const autocastSuppressedByAa = d.autocast.enabled && !aaOn;
 
-  // Target chain (needed early so per-skill vs-target values can be built inline)
+  // Attack type helpers for per-source resolution.
+  const weaponType = WEAPONS[build.weapon].type;
+  const resolveType = (t: import("@/lib/types").SourceAttackType): import("@/lib/types").AttackType =>
+    t === "weapon" ? weaponType : t;
+  const atkFor = (t: import("@/lib/types").SourceAttackType): number =>
+    c.skillAtkByType[resolveType(t)];
+
+  // Target chain.
   const targetEnabled = build.target.enabled;
   let elMult = 1;
-  let defMult = 1;
   let hitChance = 1;
 
   if (targetEnabled) {
-    const t = build.target;
-    const type = WEAPONS[build.weapon].type;
-    const defStat = type === "magic" ? t.MDEF : t.DEF;
-    defMult = 100 / (defStat + 100);
-    elMult = elementMultiplier(build.element, t.element) / 100;
-    hitChance = Math.min(1, Math.max(0, (100 + c.hit - t.FLEE) / 100));
+    elMult = elementMultiplier(build.element, build.target.element) / 100;
+    hitChance = Math.min(1, Math.max(0, (100 + c.hit - build.target.FLEE) / 100));
   }
-  const tgt = elMult * defMult;
+
+  // Per-type target defense multiplier — magic uses MDEF, everything else uses DEF.
+  const defMultFor = (t: import("@/lib/types").AttackType): number =>
+    targetEnabled ? 100 / ((t === "magic" ? build.target.MDEF : build.target.DEF) + 100) : 1;
+  const tgtFor = (t: import("@/lib/types").AttackType): number => elMult * defMultFor(t);
+
+  // Weapon-type target multiplier (used by AA and Status which don't have their own type picker).
+  const tgt = tgtFor(weaponType);
 
   // --- Auto Attack (full rate, i.e. per second of actual autoattacking) ---
   const aaMult = multProduct(d.aa.multipliers);
@@ -729,11 +823,15 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
   // --- Autocast (full rate). Multistrike hits count as one hit, so base attacks/sec. ---
   const acMult = multProduct(d.autocast.multipliers);
   const acCrit = d.autocast.critApplies ? critMultiplier : 1;
-  const acPerCast = atk * (d.autocast.damagePct / 100) * acCrit * acMult;
+  const acAttackType = resolveType(d.autocast.attackType ?? "weapon");
+  const acAtkUsed = atkFor(d.autocast.attackType ?? "weapon");
+  const acWeaponRuns = c.skillWeaponRunsByType[acAttackType];
+  const acTgt = tgtFor(acAttackType);
+  const acPerCast = acAtkUsed * (d.autocast.damagePct / 100) * acCrit * acMult;
   const acProcsPerSec = baseHitsPerSec * (d.autocast.chancePct / 100);
   const acDps = acPerCast * acProcsPerSec;
   const acTotal = acDps * durationSec;
-  const acDpsVsTarget = acPerCast * tgt * acProcsPerSec;
+  const acDpsVsTarget = acPerCast * acTgt * acProcsPerSec;
 
   // --- Skills: build cycles, then resolve how much of the timeline they claim ---
   // Two separate limits apply and the tighter one wins:
@@ -746,16 +844,19 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
   const prepared = entries.map((s) => {
     const mult = multProduct(s.multipliers);
     const skillCrit = s.critApplies ? critMultiplier : 1;
-    const perCast = atk * (s.damagePct / 100) * s.hits * skillCrit * mult;
+    const msMult = s.multistrikeApplies ? avgHitsPerAttack : 1;
+    const sType = resolveType(s.attackType ?? "weapon");
+    const sAtk = atkFor(s.attackType ?? "weapon");
+    const sRuns = c.skillWeaponRunsByType[sType];
+    const perCast = sAtk * (s.damagePct / 100) * s.hits * msMult * skillCrit * mult;
     const actual = Math.max(0, s.baseCastTime * castTimeMult);
     // Cycle = cast time + skill delay + cooldown (all three stack).
-    // The delay is added, not used as a floor, so there is no separate max() needed.
-    // Guard against zero so an instant skill with delay 0 doesn't divide by zero.
     const cycleSec = actual + skillDelaySec + Math.max(0, s.cooldownSec);
     const contributes = skillsOn && s.enabled;
     const castFraction = cycleSec > 0 ? actual / cycleSec : 0;
     const desiredCastsPerSec = contributes && cycleSec > 0 ? 1 / cycleSec : 0;
-    return { s, mult, perCast, actual, cycleSec, contributes, castFraction, desiredCastsPerSec };
+    const sTgt = tgtFor(sType);
+    return { s, mult, msMult, sType, sAtk, sRuns, sTgt, perCast, actual, cycleSec, contributes, castFraction, desiredCastsPerSec };
   });
 
   const contributing = prepared.filter((p) => p.contributes);
@@ -777,15 +878,19 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
       name: p.s.name,
       enabled: p.s.enabled,
       mult: p.mult,
+      multistrikeMult: p.msMult,
+      attackType: p.sType,
+      atkUsed: p.sAtk,
+      weaponRuns: p.sRuns,
       actualCastTime: p.actual,
       cycleSec: p.cycleSec,
       perCast: p.perCast,
-      perCastVsTarget: p.perCast * tgt,
+      perCastVsTarget: p.perCast * p.sTgt,
       castFraction: p.castFraction,
       castsPerSec,
       castsInWindow: castsPerSec * durationSec,
       dps,
-      dpsVsTarget: p.perCast * tgt * castsPerSec,
+      dpsVsTarget: p.perCast * p.sTgt * castsPerSec,
       total: dps * durationSec,
     };
   });
@@ -813,14 +918,17 @@ export function computeDamageBreakdown(build: Build): DamageBreakdownResult {
     skillDpsVsTarget + aaDpsInRotationVsTarget + acDpsInRotationVsTarget + statusDpsInRotationVsTarget;
   const totalRotationDamageVsTarget = totalRotationDpsVsTarget * durationSec;
 
+  // Expose the weapon-type defMult for the shared target readout tile in the UI.
+  const defMult = defMultFor(weaponType);
+
   return {
-    atk, critMultiplier, baseHitsPerSec, effHitsPerSec, castTimeMult, ctr: sp.ctr, durationSec,
+    atk, critMultiplier, baseHitsPerSec, effHitsPerSec, avgHitsPerAttack, castTimeMult, ctr: sp.ctr, durationSec,
     aaOn, skillsOn, statusOn, autocastOn, autocastSuppressedByAa,
     aaMult, aaPerHit, aaDps, aaTotal,
     skills, totalCastFraction, aaUptime, isCastBound, skillDps, skillTotal,
     skillDelaySec, maxCastsPerSec, desiredCastsPerSec, totalCastsPerSec, isDelayBound,
     statusBase, statusMult, statusPerTick, statusDps, statusTotal,
-    acMult, acPerCast, acProcsPerSec, acDps, acTotal,
+    acMult, acAttackType, acAtkUsed, acWeaponRuns, acPerCast, acProcsPerSec, acDps, acTotal,
     aaDpsInRotation, acDpsInRotation, statusDpsInRotation,
     totalRotationDps, totalRotationDamage,
     targetEnabled, elMult, defMult, hitChance,
@@ -865,7 +973,7 @@ export function computeStats(build: Build): StatResult[] {
     push("rangedAtk", "Ranged Attack", c.rangedAtk, "offense",
       `(LV/4 + DEX + STR/5 + LUK/5 + MASTERY + (ATK+WeaponATK)*(1+DEX/200)) * (1+FLOOR(DEX/10)/100) * (1+ATK%) ${stanceNote}`);
     push("matk", "Magic Attack", c.matk, "offense",
-      `(LV/4 + INT*1.5 + DEX/5 + MASTERY + (ATK+WeaponATK)*(1+INT/200)) * (1+FLOOR(INT/10)/100) * (1+MATK%) ${stanceNote}`);
+      `(LV/4 + INT*1.5 + DEX/5 + MASTERY + (MATK+WeaponMATK)*(1+INT/200)) * (1+FLOOR(INT/10)/100) * (1+MATK%) ${stanceNote}`);
   }
 
   // --- Speed ---

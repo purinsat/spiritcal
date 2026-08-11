@@ -1,7 +1,7 @@
 // LocalStorage preset persistence + URL share encoding for builds.
 
 import type { Build, DamageConfig, DamageMultiplier, GearMods, LoadoutSet, SkillEntry } from "@/lib/types";
-import { makeDefaultBuild, DEFAULT_DAMAGE, DEFAULT_GEAR, DEFAULT_SKILL } from "@/data/gameData";
+import { makeDefaultBuild, DEFAULT_DAMAGE, DEFAULT_GEAR, DEFAULT_SKILL, WEAPONS } from "@/data/gameData";
 import { GEAR_SLOTS, makeDefaultSlot } from "@/data/loadoutData";
 
 const PRESETS_KEY = "spiritcal.presets.v1";
@@ -139,12 +139,33 @@ function normalizeDamage(d: LegacyDamageConfig | undefined, skillCastTime: numbe
 /** Merge a possibly-partial stored build onto fresh defaults so new fields don't break old saves. */
 export function normalizeBuild(b: Partial<Build>): Build {
   const base = makeDefaultBuild(b.name ?? "Build");
+  const gear = normalizeGear(b.gear as LegacyGearMods | undefined);
+
+  // Migration: old magic-weapon builds stored the weapon's magic attack in WeaponATK.
+  // If there is no WeaponMATK in the save, move WeaponATK → WeaponMATK for magic weapons.
+  const legacyGear = b.gear as (Partial<GearMods> & Record<string, unknown>) | undefined;
+  if (b.weapon) {
+    if (WEAPONS[b.weapon as import("@/lib/types").WeaponKey]?.type === "magic" &&
+        legacyGear?.WeaponMATK === undefined && gear.WeaponATK > 0) {
+      gear.WeaponMATK = gear.WeaponATK;
+      gear.WeaponATK = 0;
+    }
+    // Off-hand magic weapon migration.
+    if (b.offhand && b.offhand !== "none" && b.offhand !== "shield") {
+      if (WEAPONS[b.offhand as import("@/lib/types").WeaponKey]?.type === "magic" &&
+          legacyGear?.OffhandMATK === undefined && gear.OffhandATK > 0) {
+        gear.OffhandMATK = gear.OffhandATK;
+        gear.OffhandATK = 0;
+      }
+    }
+  }
+
   return {
     ...base,
     ...b,
     id: b.id ?? base.id,
     attrs: { ...base.attrs, ...b.attrs },
-    gear: normalizeGear(b.gear as LegacyGearMods | undefined),
+    gear,
     target: { ...base.target, ...b.target },
     damage: normalizeDamage(
       b.damage as LegacyDamageConfig | undefined,

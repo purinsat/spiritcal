@@ -4,7 +4,10 @@ Melee Atk: (LV/4 + STR*1.5 + DEX/5 + LUK/5 + MASTERY + ATK * (1 + STR/200)) * (1
 
 Ranged Atk: (LV/4 + DEX + STR/5 + LUK/5 + MASTERY + ATK * (1 + DEX/200)) * (1 +  FLOOR(DEX/10) / 100) * (1 + ATK%)
 
-Matk: (LV/4 + INT*1.5 + DEX/5 + MASTERY + ATK * (1 + INT/200)) * (1 + FLOOR(INT/10) / 100) * (1 + MATK%)
+Matk: (LV/4 + INT*1.5 + DEX/5 + MASTERY + MATK * (1 + INT/200)) * (1 + FLOOR(INT/10) / 100) * (1 + MATK%)
+# Corrected Aug 2026: the flat term is MATK (a separate stat from ATK), not ATK.
+# MATK is split into non-weapon MATK, WeaponMATK (main hand), and OffhandMATK (off hand),
+# mirroring the three-way ATK split. Melee and ranged formulas continue to use ATK.
 
 [Unique multipliers are applied at the end, e.g. * (1 + DamageMagic%) * (1 + ElementDamage%)]
 

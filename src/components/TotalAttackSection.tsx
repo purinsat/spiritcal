@@ -49,6 +49,11 @@ function AttackTile({ atk, accent }: { atk: AttackBreakdown; accent?: AccentKey 
               {atk.badgeLabel ?? "Primary"}
             </span>
           )}
+          {atk.typeLabel && (
+            <span className="ml-1.5 rounded-full border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted">
+              {atk.typeLabel}
+            </span>
+          )}
         </span>
         <span className="text-[11px] text-muted">scales with {atk.driver}</span>
       </div>
@@ -124,9 +129,10 @@ const ATTR_INPUTS: AttrInput[] = [
 
 type GearInput = { key: keyof GearMods; label: string; hint: string; suffix?: string };
 const GEAR_INPUTS_BASE: GearInput[] = [
-  { key: "ATK", label: "Other Flat ATK", hint: "Flat ATK from armor, accessories, buffs (not the weapons themselves)" },
-  { key: "MASTERY", label: "Mastery", hint: "Flat attack bonus from Mastery stat" },
-  { key: "ATKpct", label: "ATK%", hint: "% attack boost on gear / buffs", suffix: "%" },
+  { key: "ATK",  label: "Other Flat ATK",  hint: "Flat ATK from armor, accessories, buffs (not the weapons themselves)" },
+  { key: "MATK", label: "Other Flat MATK", hint: "Flat MATK from armor, accessories, buffs (not the weapons themselves)" },
+  { key: "MASTERY",  label: "Mastery",  hint: "Flat attack bonus from Mastery stat" },
+  { key: "ATKpct",  label: "ATK%",  hint: "% attack boost on gear / buffs", suffix: "%" },
   { key: "MATKpct", label: "MATK%", hint: "% magic attack boost on gear / buffs", suffix: "%" },
 ];
 
@@ -208,14 +214,30 @@ export function TotalAttackSection({
             onChange={(v) => setGear("WeaponATK", v)}
             hint="Flat ATK on your main-hand weapon"
           />
+          <NumberInput
+            label={`${WEAPONS[build.weapon].label} MATK`}
+            value={build.gear.WeaponMATK}
+            min={0}
+            onChange={(v) => setGear("WeaponMATK", v)}
+            hint="Flat MATK on your main-hand weapon (magic weapons)"
+          />
           {build.offhand !== "none" && build.offhand !== "shield" && (
-            <NumberInput
-              label={`${WEAPONS[build.offhand].label} ATK`}
-              value={build.gear.OffhandATK}
-              min={0}
-              onChange={(v) => setGear("OffhandATK", v)}
-              hint="Flat ATK on your off-hand weapon"
-            />
+            <>
+              <NumberInput
+                label={`${WEAPONS[build.offhand].label} ATK`}
+                value={build.gear.OffhandATK}
+                min={0}
+                onChange={(v) => setGear("OffhandATK", v)}
+                hint="Flat ATK on your off-hand weapon"
+              />
+              <NumberInput
+                label={`${WEAPONS[build.offhand].label} MATK`}
+                value={build.gear.OffhandMATK}
+                min={0}
+                onChange={(v) => setGear("OffhandMATK", v)}
+                hint="Flat MATK on your off-hand weapon (magic weapons)"
+              />
+            </>
           )}
           {GEAR_INPUTS_BASE.map((f) => (
             <NumberInput

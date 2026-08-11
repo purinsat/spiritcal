@@ -4,13 +4,26 @@
 
 ## Data flow
 
-All damage sources read the same shared values from the active build:
+All damage sources read shared values from the active build:
 
-- **ATK (primary)** — `computeCore(build).attackByType` — respects weapon type and stance multiplier
+- **AA ATK** — `computeCore(build).attackByType` — for autoattacks: the weapon-type total; dual wield sums both weapon totals (each run independently, then added). AA and Status always use this value.
+- **Skill ATK** — `computeCore(build).skillAtkByType[resolvedType]` — for skills and autocast. Same summing rule as autoattacks: one full formula run per equipped weapon **whose own type matches**, then added together. Two pistols with a ranged skill run the ranged formula twice and sum. When no equipped weapon has that type, it falls back to a single run using non-weapon flat stats — two pistols with a magic skill produce one INT-driven run off your gear MATK, since a pistol carries no MATK. `skillWeaponRunsByType` reports how many runs contributed, which the UI shows as "(2 weapons)".
+- **Attack type** — each skill and the autocast carries its own `attackType` ("weapon" / "melee" / "ranged" / "magic"). `"weapon"` follows the equipped main-hand type at compute time. Magic skills use `skillAtkByType.magic` (scales INT, uses flat MATK); melee/ranged use `skillAtkByType.melee/ranged` (scale STR/DEX, use flat ATK).
 - **Avg crit multiplier** — `computeCrit(build).critMultiplier` — `(1-p) + p × (critDmg%/100)`
 - **Base hits/sec** — `computeSpeed(build).hitsPerSec` — `1 / attackDelay`
 - **Effective hits/sec** — `computeSpeed(build).effectiveHitsPerSec` — `hitsPerSec × (1 + Multistrike/100)`
 - **Cast time multiplier** — `computeSpeed(build).castTime` — applied to each skill's listed cast time
+
+### Target defense
+
+Each source hits a target's **DEF** or **MDEF** depending on its resolved attack type:
+
+```
+defMultFor(type) = targetEnabled ? 100 / ((type === "magic" ? MDEF : DEF) + 100) : 1
+tgtFor(type)     = elMult × defMultFor(type)
+```
+
+Auto Attack and Status use the weapon type. Each skill and autocast use their own resolved type.
 
 ## Multiplicative multipliers
 
@@ -57,9 +70,12 @@ Skills are a list. Each entry has its own `baseCastTime` and `cooldownSec`, inde
 ```
 actualCast_i   = baseCastTime_i × castTimeMultiplier
 cycle_i        = max(actualCast_i + cooldownSec_i, skillDelaySec)
-perCast_i      = ATK × (damagePct_i/100) × hits_i × (critApplies_i ? critMult : 1) × Π(multipliers_i)
+msMult_i       = multistrikeApplies_i ? avgHitsPerAttack : 1   // opt-in per-skill multistrike
+perCast_i      = ATK × (damagePct_i/100) × hits_i × msMult_i × (critApplies_i ? critMult : 1) × Π(multipliers_i)
 castFraction_i = actualCast_i / cycle_i           // share of the timeline spent casting this skill
 ```
+
+`msMult_i` is 1 by default. Toggle it on only for skills whose in-game tooltip says "Triggers Multistrike". It multiplies the skill's hits by the same `avgHitsPerAttack = 1 + Multistrike%/100` factor that autoattacks use. Timing (cycle, casts/sec) is unaffected.
 
 Cooldown starts when the cast completes. `skillDelaySec = (200 - CastSpeed) / 50` floors the cycle
 because a skill cannot repeat faster than the game's gap between casts — see `skill-delay.md`.

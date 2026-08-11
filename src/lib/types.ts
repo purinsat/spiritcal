@@ -34,6 +34,9 @@ export type WeaponKey =
 
 export type AttackType = "melee" | "ranged" | "magic";
 
+/** "weapon" = follow the main-hand weapon's type at compute time. */
+export type SourceAttackType = AttackType | "weapon";
+
 export type StanceKey = "twoHanded" | "oneHanded" | "dualWield";
 
 export type ArchetypeKey =
@@ -66,6 +69,12 @@ export interface GearMods {
   WeaponATK: number;
   /** Flat ATK from the off-hand weapon (dual wield only). */
   OffhandATK: number;
+  /** Flat MATK from non-weapon sources (armor, accessories, buffs, etc.). */
+  MATK: number;
+  /** Flat MATK from the main-hand weapon (magic weapons only). */
+  WeaponMATK: number;
+  /** Flat MATK from the off-hand weapon (dual wield magic weapons only). */
+  OffhandMATK: number;
   MASTERY: number;
   DEF: number;
   MDEF: number;
@@ -173,6 +182,10 @@ export interface SkillEntry {
   damagePct: number;
   hits: number;
   critApplies: boolean;
+  /** True when the skill's tooltip says "Triggers Multistrike". Multiplies hits by avgHitsPerAttack. */
+  multistrikeApplies: boolean;
+  /** Attack type used for this skill's damage formula. "weapon" follows the equipped weapon. */
+  attackType: SourceAttackType;
   /** Listed cast time in seconds, before Cast Time Reduction. */
   baseCastTime: number;
   /** Cooldown in seconds, counted from when the cast completes. */
@@ -205,6 +218,8 @@ export interface DamageConfig {
     damagePct: number;
     chancePct: number;
     critApplies: boolean;
+    /** Attack type for this autocast skill. "weapon" follows the equipped weapon. */
+    attackType: SourceAttackType;
     multipliers: DamageMultiplier[];
   };
 }
