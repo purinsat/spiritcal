@@ -370,6 +370,14 @@ export interface SpeedResult {
   ctr: number;
   /** True when Cast Speed is high enough that the 90% CTR cap is in effect. */
   isCtrCapped: boolean;
+  /** Uncapped CTR from the raw formula (display only — never fed to damage math). May exceed 90. */
+  ctrRaw: number;
+  /** How many CTR percentage points are wasted above the cap (0 when not capped). */
+  ctrOvercapBy: number;
+  /** The Cast Speed value at which the 90% CTR cap is exactly reached (195). */
+  castSpeedAtCap: number;
+  /** How much Cast Speed above the cap the build currently has (0 when not capped). */
+  castSpeedSurplus: number;
   /** The skill base cast time the player entered (seconds). */
   skillCastTime: number;
   /** Actual cast time after reduction: skillCastTime × castTime (seconds). */
@@ -414,6 +422,11 @@ export function computeSpeed(build: Build): SpeedResult {
   const castTimeRaw = (200 - castSpeed) / 50;
   const castTime = Math.max(castTimeFloor, castTimeRaw);
   const isCtrCapped = castTimeRaw < castTimeFloor;
+  // Raw / surplus values — display only, never used in damage math.
+  const castSpeedAtCap = 200 - 50 * castTimeFloor;                  // 195
+  const ctrRaw = (1 - castTimeRaw) * 100;                           // uncapped, may exceed 90
+  const ctrOvercapBy = Math.max(0, ctrRaw - CTR_CAP_PCT);
+  const castSpeedSurplus = Math.max(0, castSpeed - castSpeedAtCap);
   // Skill delay is a manual input (read from the in-game stat window) because the dev has
   // not published the formula and it depends on ASPD, not Cast Speed.
   const skillDelaySec = build.skillDelaySec ?? 0.3;
@@ -442,6 +455,10 @@ export function computeSpeed(build: Build): SpeedResult {
     castSpeed,
     castTime,
     isCtrCapped,
+    ctrRaw,
+    ctrOvercapBy,
+    castSpeedAtCap,
+    castSpeedSurplus,
     skillDelaySec,
     maxCastsPerSec,
     ctrExact,
@@ -1021,7 +1038,9 @@ export function computeStats(build: Build): StatResult[] {
     "Fraction of a skill's listed cast time you pay (drives CTR; separate from Skill Delay)");
   push("ctr", "Cast Time Reduction", sp.ctr, "speed",
     "MIN(90, ROUND((1 - (200-CastSpeed)/50) × 100))", `${fmt(sp.ctr, 0)}%`,
-    sp.isCtrCapped ? "Capped at 90% — further Cast Speed has no effect" : undefined);
+    sp.isCtrCapped
+      ? `Capped at 90% — raw ${fmt(sp.ctrRaw, 1)}%, ${fmt(sp.castSpeedSurplus, 1)} spare Cast Speed`
+      : undefined);
   push("actualCastTime", "Actual cast time", sp.actualCastTime, "speed",
     "skillCastTime × castTime multiplier", `${fmt(sp.actualCastTime, 3)}s`,
     `${fmt(sp.skillCastTime, 1)}s skill — saves ${fmt(sp.secondsSaved, 3)}s`);

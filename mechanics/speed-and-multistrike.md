@@ -55,6 +55,7 @@ skill's base cast time. Use the "Skill cast time" input in the Speed section to 
 - Cast Speed **195** is exactly where the cap bites: `(200 - 195) / 50 = 0.10` → 90% CTR.
 - Any Cast Speed above 195 is wasted — the reduction does not increase further.
 - The cap is a fixed constant (`CTR_CAP_PCT = 90` in `gameData.ts`). Unlike `AspdLimit` it is not raisable by gear.
+- `SpeedResult` exposes `ctrRaw`, `ctrOvercapBy`, `castSpeedAtCap`, and `castSpeedSurplus` for display and stat-budgeting. These are **never** fed to `castTime` or any damage math — the cap is applied at the `castTime` level only.
 
 The formula in older notes used incorrect parenthesisation (`ROUND(1 - CastTime × 100)`); the
 correct grouping `ROUND((1 - CastTime) × 100)` is used everywhere in this codebase.

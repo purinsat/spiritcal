@@ -167,13 +167,18 @@ export function SpeedSection({
               label={`Cast time (${fmt(sp.skillCastTime, 1)}s base)`}
               value={`${fmt(sp.actualCastTime, 2)}s`}
               badge={
-                <span className="text-sm font-semibold text-secondary">
-                  -{fmt(sp.ctrExact, 1)}%
+                <span className="flex items-center gap-1">
+                  <span className="text-sm font-semibold text-secondary">
+                    -{fmt(sp.ctrExact, 1)}%
+                  </span>
+                  {sp.isCtrCapped && (
+                    <span className="text-xs font-semibold text-bad">cap</span>
+                  )}
                 </span>
               }
               sub={
                 sp.isCtrCapped
-                  ? `saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}% · capped at 90%`
+                  ? `saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}% (raw ${fmt(sp.ctrRaw, 1)}%)`
                   : `saves ${fmt(sp.secondsSaved, 2)}s · CTR ${fmt(sp.ctrExact, 1)}%`
               }
               accent={accent}
@@ -181,6 +186,21 @@ export function SpeedSection({
           </div>
         </div>
       </div>
+
+      {/* --- CTR overcap callout --- */}
+      {sp.isCtrCapped && (
+        <div className="mb-5 rounded-xl border border-bad/30 bg-bad/6 p-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-bad">
+            CTR overcap — {fmt(sp.ctrOvercapBy, 1)} pts wasted
+          </p>
+          <p className="text-sm text-foreground">
+            Your raw CTR is {fmt(sp.ctrRaw, 1)}%, above the 90% cap. Cast Speed{" "}
+            {fmt(sp.castSpeedAtCap, 0)} is all you need; you have{" "}
+            {fmt(sp.castSpeedSurplus, 1)} spare. Move that DEX, INT or Cast Speed% gear
+            into other stats.
+          </p>
+        </div>
+      )}
 
       {/* --- Detail strip --- */}
       <FormulaDetails title="Details">
@@ -194,13 +214,17 @@ export function SpeedSection({
           value={`${fmt(sp.attackDelay, 3)}s`}
         />
         <DetailRow label="Base Attack Delay (BAD)" value={fmt(sp.bad, 2)} />
-        <DetailRow label="Cast Speed" value={fmt(sp.castSpeed, 1)} />
+        <DetailRow
+          label="Cast Speed"
+          value={fmt(sp.castSpeed, 1)}
+          hint={sp.isCtrCapped ? `cap reached at ${fmt(sp.castSpeedAtCap, 0)}; ${fmt(sp.castSpeedSurplus, 1)} spare` : `cap at ${fmt(sp.castSpeedAtCap, 0)}`}
+        />
         <DetailRow
           label="Cast time multiplier = (200 − Cast Speed) / 50"
           value={fmt(sp.castTime, 3)}
           hint={
             sp.isCtrCapped
-              ? `${fmt(sp.ctr, 0)}% CTR (capped at 90%; raw ${fmt((1 - (200 - sp.castSpeed) / 50) * 100, 1)}%)`
+              ? `${fmt(sp.ctr, 0)}% CTR (capped at 90%; raw ${fmt(sp.ctrRaw, 1)}%)`
               : `${fmt(sp.ctr, 0)}% CTR`
           }
         />
